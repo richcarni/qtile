@@ -74,7 +74,7 @@ class Drawer(drawer.Drawer):
             height = self.height
         if height > self._win.height - offsety:
             height = self._win.height - offsety
- 
+
         assert width is not None
         assert height is not None
 
