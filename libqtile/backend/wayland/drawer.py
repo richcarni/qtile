@@ -68,10 +68,12 @@ class Drawer(drawer.Drawer):
         # Make sure geometry doesn't extend beyond texture
         if width is None:
             width = self.width
+            assert width is not None
         if width > self._win.width - offsetx:
             width = self._win.width - offsetx
         if height is None:
             height = self.height
+            assert height is not None
         if height > self._win.height - offsety:
             height = self._win.height - offsety
         scale = self.qtile.config.wl_scale_factor
