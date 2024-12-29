@@ -27,6 +27,8 @@ from wlroots.util.region import PixmanRegion32
 
 from libqtile.backend.base import drawer
 
+from libqtile.log_utils import logger
+
 if TYPE_CHECKING:
     from libqtile.backend.wayland.window import Internal
     from libqtile.core.manager import Qtile
@@ -79,12 +81,15 @@ class Drawer(drawer.Drawer):
         assert width is not None
         assert height is not None
 
+        logger.warning("drawer, w, h: " + str(width) + ", " + str(height))
+
         scale = self.qtile.config.wl_scale_factor
+        scale = 1.0
 
         # Paint recorded operations to our window's underlying ImageSurface
         with cairocffi.Context(self._win.surface) as context:
             context.set_operator(cairocffi.OPERATOR_SOURCE)
-            context.scale(scale, scale)
+            # context.scale(scale, scale)
             # Adjust the source surface position by src_x and src_y e.g. if we want
             # to render part of the surface in a different position
             context.set_source_surface(self.surface, offsetx - src_x, offsety - src_y)

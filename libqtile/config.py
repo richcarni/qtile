@@ -520,7 +520,7 @@ class Screen(CommandObject):
         if self.top and getattr(self.top, "reserve", True):
             val -= self.top.size
         if self.bottom and getattr(self.bottom, "reserve", True):
-            val -= self.bottom.size
+            val -= int(self.bottom.size/1.5) 
         return val
 
     def get_rect(self) -> ScreenRect:

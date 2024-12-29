@@ -934,9 +934,10 @@ class Internal(_Base, base.Internal):
         self._wid: int = self.core.new_wid()
         self.x: int = x
         self.y: int = y
-        self._width: int = width
-        self._height: int = height
+        self._width: int = int(width/1.0)
+        self._height: int = int(height/1.0)
         self._opacity: float = 1.0
+        logger.warning(str(width) + ", " + str(height) + ", "+ str(self._width) + ", " + str(self._height))
 
         # Store this object on the scene node for finding the window under the pointer.
         self.wlr_buffer, self.surface = self._new_buffer(init=True)
@@ -949,7 +950,7 @@ class Internal(_Base, base.Internal):
         if scene_buffer is None:
             raise RuntimeError("Couldn't create scene buffer")
         self._scene_buffer = scene_buffer
-        wlr_lib.wlr_scene_buffer_set_dest_size(scene_buffer._ptr, width, height)
+        wlr_lib.wlr_scene_buffer_set_dest_size(scene_buffer._ptr, int(width/1.5), int(height/1.5))
         # The borders are wlr_scene_rects.
         # Inner list: N, E, S, W edges
         # Outer list: outside-in borders i.e. multiple for multiple borders
@@ -964,8 +965,10 @@ class Internal(_Base, base.Internal):
             self.wlr_buffer.drop()
 
         scale = self.qtile.config.wl_scale_factor
+        scale = 1
         width = int(self._width * scale)
         height = int(self._height * scale)
+        logger.warning("_new_buffer, w, h:" + str(width) + ", " + str(height))
         surface = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, width, height)
         stride = surface.get_stride()
         data = cairocffi.cairo.cairo_image_surface_get_data(surface._pointer)
@@ -977,8 +980,9 @@ class Internal(_Base, base.Internal):
 
         if not init:
             self._scene_buffer.set_buffer_with_damage(buffer)
+            logger.warning("not init w, h: " + str(self._width) + ", " + str(self._height))
             wlr_lib.wlr_scene_buffer_set_dest_size(
-                self._scene_buffer._ptr, self._width, self._height
+                self._scene_buffer._ptr, int(self._width/1.5), int(self._height/1.5)
             )
 
         return buffer, surface

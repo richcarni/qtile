@@ -28,6 +28,8 @@ from libqtile.command.base import CommandObject, expose_command
 from libqtile.log_utils import logger
 from libqtile.utils import has_transparency, is_valid_colors
 
+from libqtile.log_utils import logger
+
 if typing.TYPE_CHECKING:
     import asyncio
     from typing import Any
@@ -90,10 +92,12 @@ class Gap:
             self._size += self.margin[0] + self.margin[2]
         elif screen.bottom is self:
             self.x = screen.x + self.margin[3]
+            logger.warning("dy, dheight: " + str(screen.dy) + ", " + str(screen.dheight))
             self.y = screen.dy + screen.dheight - self.margin[2]
-            self._length = screen.width - self.margin[1] - self.margin[3]
+            self._length = int(screen.width * 1.5) - self.margin[1] - self.margin[3]
             self.width = self._length
-            self.height = self._initial_size
+            self.height = int(self._initial_size * 1.0)
+            logger.warning("bar, w, h, y" + str(self.width) + ", " + str(self.height) + ", " + str(self.y))
             self.horizontal = True
             self._size += self.margin[0] + self.margin[2]
         elif screen.left is self:
@@ -250,6 +254,7 @@ class Bar(Gap, configurable.Configurable, CommandObject):
         # reserved or we're reconfiguring the bar because the screen has changed
         if not self._configured or self._reserved_space_updated or reconfigure:
             Gap._configure(self, qtile, screen)
+            logger.warning("y " + str(self.y))
 
             if any(self.margin) or any(self.border_width) or self._reserved_space_updated:
                 # Increase the margin size for the border. The border will be drawn
@@ -277,9 +282,12 @@ class Bar(Gap, configurable.Configurable, CommandObject):
                         self.x -= margin[1] + self.border_width[1]
 
             if screen.bottom is self and not self.reserve:
-                self.y -= self.height + self.margin[2]
+                logger.warning("here3")
+                self.y -= int(self.height/1.5) + self.margin[2]
             elif screen.right is self and not self.reserve:
                 self.x -= self.width + self.margin[1]
+
+            logger.warning("bar height " + str(self.y) + ", " +str(self.height) + ", " + str(self.margin[2]))
 
             self._reserved_space_updated = False
 
@@ -525,6 +533,9 @@ class Bar(Gap, configurable.Configurable, CommandObject):
 
     def process_button_click(self, x: int, y: int, button: int) -> None:
         assert self.qtile is not None
+        logger.warning("button: " + str(button) + ", " + str(x) + ", " + str(y))
+        x = int(x * 1.5)
+        y = int(y * 1.5)
 
         # If we're clicking on a bar that's not on the current screen, focus that screen
         if self.screen and self.screen is not self.qtile.current_screen:
@@ -542,6 +553,8 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             )
 
     def process_button_release(self, x: int, y: int, button: int) -> None:
+        x = int(x * 1.5)
+        y = int(y * 1.5)
         widget = self.get_widget_in_position(x, y)
         if widget:
             widget.button_release(
@@ -551,6 +564,8 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             )
 
     def process_pointer_enter(self, x: int, y: int) -> None:
+        x = int(x * 1.5)
+        y = int(y * 1.5)
         widget = self.get_widget_in_position(x, y)
         if widget:
             widget.mouse_enter(
@@ -560,6 +575,8 @@ class Bar(Gap, configurable.Configurable, CommandObject):
         self._has_cursor = widget
 
     def process_pointer_leave(self, x: int, y: int) -> None:
+        x = int(x * 1.5)
+        y = int(y * 1.5)
         if self._has_cursor:
             self._has_cursor.mouse_leave(
                 x - self._has_cursor.offsetx,
@@ -568,6 +585,8 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             self._has_cursor = None
 
     def process_pointer_motion(self, x: int, y: int) -> None:
+        x = int(x * 1.5)
+        y = int(y * 1.5)
         widget = self.get_widget_in_position(x, y)
         if widget and self._has_cursor and widget is not self._has_cursor:
             self._has_cursor.mouse_leave(
