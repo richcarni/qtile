@@ -383,19 +383,20 @@ class ScreenRect:
     y: int
     width: int
     height: int
+    scale: float = 1.0
 
     def hsplit(self, columnwidth: int) -> tuple[ScreenRect, ScreenRect]:
         assert 0 < columnwidth < self.width
         return (
-            self.__class__(self.x, self.y, columnwidth, self.height),
-            self.__class__(self.x + columnwidth, self.y, self.width - columnwidth, self.height),
+            self.__class__(self.x, self.y, columnwidth, self.height, self.scale),
+            self.__class__(self.x + columnwidth, self.y, self.width - columnwidth, self.height, self.scale),
         )
 
     def vsplit(self, rowheight: int) -> tuple[ScreenRect, ScreenRect]:
         assert 0 < rowheight < self.height
         return (
-            self.__class__(self.x, self.y, self.width, rowheight),
-            self.__class__(self.x, self.y + rowheight, self.width, self.height - rowheight),
+            self.__class__(self.x, self.y, self.width, rowheight, self.scale),
+            self.__class__(self.x, self.y + rowheight, self.width, self.height - rowheight, self.scale),
         )
 
 
@@ -439,6 +440,7 @@ class Screen(CommandObject):
         y: int | None = None,
         width: int | None = None,
         height: int | None = None,
+        scale: float | None = None,
     ) -> None:
         self.top = top
         self.bottom = bottom
@@ -455,6 +457,7 @@ class Screen(CommandObject):
         self.y = y if y is not None else 0
         self.width = width if width is not None else 0
         self.height = height if height is not None else 0
+        self.scale = scale if scale is not None else 1.0
         self.previous_group: _Group | None = None
 
     def _configure(
@@ -465,6 +468,7 @@ class Screen(CommandObject):
         y: int,
         width: int,
         height: int,
+        scale: float,
         group: _Group,
         reconfigure_gaps: bool = False,
     ) -> None:
@@ -474,6 +478,7 @@ class Screen(CommandObject):
         self.y = y
         self.width = width
         self.height = height
+        self.scale = scale
 
         for i in self.gaps:
             i._configure(qtile, self, reconfigure=reconfigure_gaps)

@@ -79,7 +79,8 @@ class Drawer(drawer.Drawer):
         assert width is not None
         assert height is not None
 
-        scale = self.qtile.config.wl_scale_factor
+        ##scale = self.qtile.config.wl_scale_factor
+        scale = self._win.scale
 
         # Paint recorded operations to our window's underlying ImageSurface
         with cairocffi.Context(self._win.surface) as context:
