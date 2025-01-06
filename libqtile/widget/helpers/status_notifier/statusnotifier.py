@@ -30,6 +30,8 @@ from dbus_next.constants import PropertyAccess
 from dbus_next.errors import DBusError
 from dbus_next.service import ServiceInterface, dbus_property, method, signal
 
+from libqtile import rsvgcffi
+
 try:
     from xdg.IconTheme import getIconPath
 
@@ -303,6 +305,8 @@ class StatusNotifierItem:  # noqa: E303
                 svg = [icon for icon in found if icon.suffix.lower() == ".svg"]
                 if svg:
                     icon = svg[0]
+                    rsvg_handle = rsvgcffi.RsvgHandle.new_from_file(icon.resolve().as_posix())
+                    return rsvg_handle
                 else:
                     # If not, we'll take what there is
                     # NOTE: not clear how we can handle multiple matches with different icon sizes 16x16, 32x32 etc
@@ -321,6 +325,11 @@ class StatusNotifierItem:  # noqa: E303
 
         if not path:
             return None
+
+        ext = Path(path).suffix
+        if ext == ".svg":
+            rsvg_handle = rsvgcffi.RsvgHandle.new_from_file(path)
+            return rsvg_handle
 
         return Img.from_path(path)
 
@@ -392,6 +401,10 @@ class StatusNotifierItem:  # noqa: E303
 
         Will pick the appropriate icon and add any overlay as required.
         """
+        # Use rsvg handle instead of surface if svg
+        if isinstance(self.icon, rsvgcffi.RsvgHandle):
+            return self.icon
+
         # Use existing icon if generated previously
         if size in self.surfaces:
             return self.surfaces[size]

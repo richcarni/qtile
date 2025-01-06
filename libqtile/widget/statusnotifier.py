@@ -19,7 +19,7 @@
 # SOFTWARE.
 from typing import TYPE_CHECKING
 
-from libqtile import bar
+from libqtile import bar, rsvgcffi
 from libqtile.widget import base
 from libqtile.widget.helpers.status_notifier import has_xdg, host
 
@@ -129,8 +129,14 @@ class StatusNotifier(base._Widget):
 
             for item in self.available_icons:
                 icon = item.get_icon(self.icon_size)
-                self.drawer.ctx.set_source_surface(icon, xoffset, yoffset)
-                self.drawer.ctx.paint()
+
+                if isinstance(icon, rsvgcffi.RsvgHandle):
+                    icon.render_document(
+                        self.drawer.ctx, (xoffset, yoffset, self.icon_size, self.icon_size)
+                    )  # This should preserve SVG aspect ratio if that is specified by SVG?
+                else:
+                    self.drawer.ctx.set_source_surface(icon, xoffset, yoffset)
+                    self.drawer.ctx.paint()
 
                 xoffset += self.icon_size + self.padding
 
