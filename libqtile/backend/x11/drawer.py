@@ -168,6 +168,7 @@ class Drawer(drawer.Drawer):
             ctx.paint()
 
             self.previous_rect = self.current_rect
+            self.previous_ink_extents = self.current_ink_extents
 
     def _draw(
         self,
@@ -179,6 +180,7 @@ class Drawer(drawer.Drawer):
         src_y: int = 0,
     ):
         self.current_rect = (offsetx, offsety, width, height)
+        self.current_ink_extents = self.surface.ink_extents()
 
         # If this is our first draw, create the gc
         if self._gc is None:
