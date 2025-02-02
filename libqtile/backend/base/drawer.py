@@ -71,6 +71,8 @@ class Drawer:
 
         self.current_rect = (0, 0, 0, 0)
         self.previous_rect = (-1, -1, -1, -1)
+        self.current_ink_extents = (0, 0, 0, 0)
+        self.previous_ink_extents = (-1, -1, -1, -1)
         self._enabled = True
 
     def finalize(self):
@@ -135,8 +137,8 @@ class Drawer:
         # Check if the size of the area being drawn has changed
         rect_changed = self.current_rect != self.previous_rect
 
-        # Check if draw has content (would be False for completely transparent drawer)
-        ink_changed = any(not math.isclose(0.0, i) for i in self.surface.ink_extents())
+        # Check if the surface's ink_extents have changed
+        ink_changed = self.current_ink_extents != self.previous_ink_extents
 
         return ink_changed or rect_changed
 
