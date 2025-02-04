@@ -17,6 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import asyncio
 from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
@@ -132,7 +133,7 @@ class StatusNotifierItem:  # noqa: E303
         self.icon_theme = icon_theme
         self.icon = None
         self.path = path if path else STATUSNOTIFIER_PATH
-        self._get_local_icon_task = None
+        self._get_local_icon_lock = asyncio.Lock()
 
     def __eq__(self, other):
         # Convenience method to find Item in list by service path
@@ -234,54 +235,50 @@ class StatusNotifierItem:  # noqa: E303
         return True
 
     async def _get_local_icon(self, fallback=True):
-        # Default to XDG icon
-        # Some implementations don't provide an IconName property so we
-        # need to catch an error if we can't read it.
-        # We can't use hasattr to check this as the method will be created
-        # where we've used the default XML spec to provide the object introspection
-        icon_name = ""
-        try:
-            icon_name = await self.item.get_icon_name()
-        except DBusError:
-            return
-
-        # We only need to do these searches if there's an icon name provided by
-        # the app. We also don't want to do the recursive lookup with an empty
-        # icon name as, otherwise, the glob will match things that are not images.
-        if icon_name:
+        async with self._get_local_icon_lock:
+            self.icon = None
+            # Default to XDG icon
+            # Some implementations don't provide an IconName property so we
+            # need to catch an error if we can't read it.
+            # We can't use hasattr to check this as the method will be created
+            # where we've used the default XML spec to provide the object introspection
+            icon_name = ""
             try:
-                icon_path = await self.item.get_icon_theme_path()
-            except (AttributeError, DBusError):
-                icon_path = None
+                icon_name = await self.item.get_icon_name()
+            except DBusError:
+                return
 
-            if icon_path:
-                self.icon = self._get_custom_icon(icon_name, Path(icon_path))
+            # We only need to do these searches if there's an icon name provided by
+            # the app. We also don't want to do the recursive lookup with an empty
+            # icon name as, otherwise, the glob will match things that are not images.
+            if icon_name:
+                try:
+                    icon_path = await self.item.get_icon_theme_path()
+                except (AttributeError, DBusError):
+                    icon_path = None
 
-            if not self.icon:
-                self.icon = self._get_xdg_icon(icon_name)
+                if icon_path:
+                    self.icon = self._get_custom_icon(icon_name, Path(icon_path))
 
-        if fallback:
-            for icon in ["Icon", "Attention", "Overlay"]:
-                await self._get_icon(icon)
+                if not self.icon:
+                    self.icon = self._get_xdg_icon(icon_name)
 
-        if not self.has_icons and fallback:
-            # Use fallback icon libqtile/resources/status_notifier/fallback_icon.png
-            logger.warning("Could not find icon for '%s'. Using fallback icon.", icon_name)
-            path = Path(__file__).parent / "fallback_icon.png"
-            self.icon = Img.from_path(path.resolve().as_posix())
+            if fallback:
+                for icon in ["Icon", "Attention", "Overlay"]:
+                    await self._get_icon(icon)
+
+            if not self.has_icons and fallback:
+                # Use fallback icon libqtile/resources/status_notifier/fallback_icon.png
+                logger.warning("Could not find icon for '%s'. Using fallback icon.", icon_name)
+                path = Path(__file__).parent / "fallback_icon.png"
+                self.icon = Img.from_path(path.resolve().as_posix())
 
     def _create_task_and_draw(self, coro):
-        self._get_local_icon_task = create_task(coro)
-        self._get_local_icon_task.add_done_callback(self._redraw)
+        task = create_task(coro)
+        task.add_done_callback(self._redraw)
 
     def _update_local_icon(self):
-        if self._get_local_icon_task is not None and not self._get_local_icon_task.done():
-            self._get_local_icon_task.cancel()
-            self._get_local_icon_task.remove_done_callback(self._redraw)
-            self._get_local_icon_task.add_done_callback(lambda task: self._update_local_icon())
-        else:
-            self.icon = None
-            self._create_task_and_draw(self._get_local_icon())
+        self._create_task_and_draw(self._get_local_icon())
 
     def _new_icon(self):
         self._create_task_and_draw(self._get_icon("Icon"))
