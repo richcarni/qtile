@@ -241,6 +241,8 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             logger.warning("Invalid border_color specified. Borders will not be displayed.")
             self.border_width = [0, 0, 0, 0]
 
+        self.background_layer_color: ColorType = "000000"
+
     def _configure(self, qtile: Qtile, screen: Screen, reconfigure: bool = False) -> None:
         """
         Configure the bar. `reconfigure` is set to True when screen dimensions
@@ -313,6 +315,9 @@ class Bar(Gap, configurable.Configurable, CommandObject):
                 self.window = qtile.core.create_internal(
                     self.x, self.y, width, height, scale=screen.scale
                 )
+                self.background_layer_color = self.background
+                self.background = "00000000"
+                self.window.set_background(self.background_layer_color)
 
             self.window.opacity = self.opacity
             self.window.unhide()
@@ -619,6 +624,22 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             self._draw_queued = True
 
     def _actual_draw(self) -> None:
+        assert self.qtile is not None
+        # With fractional scaling, gaps between widget may appear since we are drawing over
+        # the previus bar.
+        # We can workaround this by clearing the background first, although this means that
+        # all widgets will need to be redrawn
+        # self.drawer.clear(self.background)
+        self.drawer.clear_rect()
+        self.drawer.draw(
+            offsetx=0,
+            offsety=0,
+            width=self.width,
+            height=self.height,
+            src_x=0,
+            src_y=0,
+        )
+
         self._draw_queued = False
         self._resize(self._length, self.widgets)
         # We draw the border before the widgets
@@ -671,37 +692,40 @@ class Bar(Gap, configurable.Configurable, CommandObject):
         for i in self.widgets:
             i.draw()
 
-        # We need to check if there is any unoccupied space in the bar
-        # This can happen where there are no SPACER-type widgets to fill
-        # empty space.
-        # In that scenario, we fill the empty space with the bar background colour
-        # We do this, instead of just filling the bar completely at the start of this
-        # method to avoid flickering.
+        # In Wayland we can draw the bar background in a separate layer
+        # This also hides gaps between widgets that can arise when using fractional scaling
+        if self.qtile.core.name == "x11":
+            # We need to check if there is any unoccupied space in the bar
+            # This can happen where there are no SPACER-type widgets to fill
+            # empty space.
+            # In that scenario, we fill the empty space with the bar background colour
+            # We do this, instead of just filling the bar completely at the start of this
+            # method to avoid flickering.
 
-        # Widgets are offset by the top/left border but this is not included in self._length
-        # so we adjust the end of the bar area for this offset
-        if self.horizontal:
-            bar_end = self._length + self.border_width[3]
-        else:
-            bar_end = self._length + self.border_width[0]
-
-        widget_end = i.offset + i.length
-
-        if widget_end < bar_end:
-            # Defines a rectangle for the area enclosed by the bar's borders and the end of the
-            # last widget.
+            # Widgets are offset by the top/left border but this is not included in self._length
+            # so we adjust the end of the bar area for this offset
             if self.horizontal:
-                rect = (widget_end, self.border_width[0], bar_end - widget_end, self.height)
+                bar_end = self._length + self.border_width[3]
             else:
-                rect = (self.border_width[3], widget_end, self.width, bar_end - widget_end)
+                bar_end = self._length + self.border_width[0]
 
-            # Clear that area (i.e. don't clear borders) and fill with background colour
-            self.drawer.clear_rect(*rect)
-            self.drawer.ctx.rectangle(*rect)
-            self.drawer.set_source_rgb(self.background)
-            self.drawer.ctx.fill()
-            x, y, w, h = rect
-            self.drawer.draw(offsetx=x, offsety=y, height=h, width=w, src_x=x, src_y=y)
+            widget_end = i.offset + i.length
+
+            if widget_end < bar_end:
+                # Defines a rectangle for the area enclosed by the bar's borders and the end of the
+                # last widget.
+                if self.horizontal:
+                    rect = (widget_end, self.border_width[0], bar_end - widget_end, self.height)
+                else:
+                    rect = (self.border_width[3], widget_end, self.width, bar_end - widget_end)
+
+                # Clear that area (i.e. don't clear borders) and fill with background colour
+                self.drawer.clear_rect(*rect)
+                self.drawer.ctx.rectangle(*rect)
+                self.drawer.set_source_rgb(self.background)
+                self.drawer.ctx.fill()
+                x, y, w, h = rect
+                self.drawer.draw(offsetx=x, offsety=y, height=h, width=w, src_x=x, src_y=y)
 
     @expose_command()
     def info(self) -> dict[str, Any]:

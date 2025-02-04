@@ -955,6 +955,8 @@ class Internal(_Base, base.Internal):
         self.tree.node.set_enabled(enabled=False)
         self.tree.node.data = self.data_handle
         self.tree.node.set_position(x, y)
+        self._background = SceneRect(self.tree, width, height, utils.rgb("000000"))
+        self._background.node.set_enabled(enabled=False)
         scene_buffer = SceneBuffer.create(self.tree, self.wlr_buffer)
         if scene_buffer is None:
             raise RuntimeError("Couldn't create scene buffer")
@@ -1002,6 +1004,10 @@ class Internal(_Base, base.Internal):
     def unhide(self) -> None:
         self.tree.node.set_enabled(enabled=True)
 
+    def set_background(self, color: ColorType) -> None:
+        self._background.set_color(utils.rgb(color))
+        self._background.node.set_enabled(enabled=True)
+
     @property
     def scale(self) -> float:
         return self._scale
@@ -1045,6 +1051,7 @@ class Internal(_Base, base.Internal):
             self._height = height
             self._scale = scale
             self.wlr_buffer, self.surface = self._new_buffer()
+            self._background.set_size(width, height)
 
     def paint_borders(self, colors: ColorsType | None, width: int) -> None:
         if not colors:
