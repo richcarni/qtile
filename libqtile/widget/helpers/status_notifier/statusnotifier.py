@@ -366,7 +366,10 @@ class StatusNotifierItem:  # noqa: E303
 
         return arr
 
-    def _redraw(self, result):
+    def _redraw(self, task):
+        if task.cancelled():
+            return
+
         """Method to invalidate icon cache and redraw icons."""
         self._invalidate_icons()
         if self.on_icon_changed is not None:
