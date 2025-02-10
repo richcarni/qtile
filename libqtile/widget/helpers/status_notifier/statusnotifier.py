@@ -18,6 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import asyncio
+import itertools
 from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
@@ -133,7 +134,8 @@ class StatusNotifierItem:  # noqa: E303
         self.icon_theme = icon_theme
         self.icon = None
         self.path = path if path else STATUSNOTIFIER_PATH
-        self._get_local_icon_lock = asyncio.Lock()
+        self.task_counter = itertools.count(1)
+        self.lock = asyncio.Lock()
 
     def __eq__(self, other):
         # Convenience method to find Item in list by service path
@@ -235,8 +237,11 @@ class StatusNotifierItem:  # noqa: E303
         return True
 
     async def _get_local_icon(self, fallback=True):
-        async with self._get_local_icon_lock:
+        await self.lock.acquire()
+        try:
             self.icon = None
+            task = asyncio.current_task()
+            logger.warning(f"id: {task.get_name()}, start _get_local_icon")
             # Default to XDG icon
             # Some implementations don't provide an IconName property so we
             # need to catch an error if we can't read it.
@@ -252,15 +257,20 @@ class StatusNotifierItem:  # noqa: E303
             # the app. We also don't want to do the recursive lookup with an empty
             # icon name as, otherwise, the glob will match things that are not images.
             if icon_name:
+                logger.warning(f"id: {task.get_name()}, icon_name: {icon_name}")
+
                 try:
                     icon_path = await self.item.get_icon_theme_path()
                 except (AttributeError, DBusError):
                     icon_path = None
 
+                icon = None
                 if icon_path:
-                    self.icon = self._get_custom_icon(icon_name, Path(icon_path))
+                    icon = self._get_custom_icon(icon_name, Path(icon_path))
 
-                if not self.icon:
+                if icon:
+                    self.icon = icon
+                else:
                     self.icon = self._get_xdg_icon(icon_name)
 
             if fallback:
@@ -273,11 +283,19 @@ class StatusNotifierItem:  # noqa: E303
                 path = Path(__file__).parent / "fallback_icon.png"
                 self.icon = Img.from_path(path.resolve().as_posix())
 
+            logger.warning(f"id: {task.get_name()}, end _get_local_icon, icon_name: {icon_name}, {self.icon.name}")
+        except Exception:
+            self.lock.release()
+
+
     def _create_task_and_draw(self, coro):
+        task_name = f"{next(self.task_counter)}"
         task = create_task(coro)
+        logger.warning(f"id: {task.get_name()}, task created")
         task.add_done_callback(self._redraw)
 
     def _update_local_icon(self):
+        ##self.icon = None
         self._create_task_and_draw(self._get_local_icon())
 
     def _new_icon(self):
@@ -329,7 +347,10 @@ class StatusNotifierItem:  # noqa: E303
         if not path:
             return None
 
-        return Img.from_path(path)
+        img = Img.from_path(path)
+        img.extras = asyncio.current_task().get_name()
+        return img
+        ##return Img.from_path(path)
 
     async def _get_icon(self, icon_name):
         """
@@ -363,9 +384,12 @@ class StatusNotifierItem:  # noqa: E303
 
         return arr
 
-    def _redraw(self, task):
-        if task.cancelled():
-            return
+    def _redraw(self, result):
+        logger.warning(f"id: {result.get_name()}, start redraw")
+        if self.icon:
+            logger.warning(f"{self.icon.extras} - {self.icon.name}")
+        else:
+            logger.warning("icon = None")
 
         """Method to invalidate icon cache and redraw icons."""
         self._invalidate_icons()
@@ -402,60 +426,65 @@ class StatusNotifierItem:  # noqa: E303
 
         Will pick the appropriate icon and add any overlay as required.
         """
-        # Use existing icon if generated previously
-        if size in self.surfaces:
-            return self.surfaces[size]
+        try:
+            # Use existing icon if generated previously
+            if size in self.surfaces:
+                return self.surfaces[size]
 
-        # Create a blank ImageSurface to hold the icon
-        icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, size, size)
+            # Create a blank ImageSurface to hold the icon
+            icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, size, size)
 
-        if self.icon:
-            base_icon = self.icon.surface
-            icon_size = base_icon.get_width()
-            overlay = None
+            if self.icon:
+                logger.warning(f"get_icon_start - {self.icon.extras} - {self.icon.name}")
+                base_icon = self.icon.surface
+                icon_size = base_icon.get_width()
+                overlay = None
 
-        else:
-            # Find best matching icon size:
-            # We get all available sizes and filter this list so it only shows
-            # the icon sizes bigger than the requested size (we prefer to
-            # shrink icons rather than scale them up)
-            all_sizes = self._get_sizes()
-            sizes = [s for s in all_sizes if s >= size]
+            else:
+                # Find best matching icon size:
+                # We get all available sizes and filter this list so it only shows
+                # the icon sizes bigger than the requested size (we prefer to
+                # shrink icons rather than scale them up)
+                all_sizes = self._get_sizes()
+                sizes = [s for s in all_sizes if s >= size]
 
-            # TODO: This is messy. Shouldn't return blank icon
-            # If there are no sizes at all (i.e. no icon) then we return empty
-            # icon
-            if not all_sizes:
-                return icon
+                # TODO: This is messy. Shouldn't return blank icon
+                # If there are no sizes at all (i.e. no icon) then we return empty
+                # icon
+                if not all_sizes:
+                    return icon
 
-            # Choose the first available size. If there are none (i.e. we
-            # request icon size bigger than the largest provided by the app),
-            # we just take the largest icon
-            icon_size = sizes[0] if sizes else all_sizes[-1]
+                # Choose the first available size. If there are none (i.e. we
+                # request icon size bigger than the largest provided by the app),
+                # we just take the largest icon
+                icon_size = sizes[0] if sizes else all_sizes[-1]
 
-            srfs = self._get_surfaces(icon_size)
+                srfs = self._get_surfaces(icon_size)
 
-            # TODO: This shouldn't happen...
-            if not srfs:
-                return icon
+                # TODO: This shouldn't happen...
+                if not srfs:
+                    return icon
 
-            # TODO: Check spec for when to use "attention"
-            base_icon = srfs.get("Attention", srfs["Icon"])
-            overlay = srfs.get("Overlay", None)
+                # TODO: Check spec for when to use "attention"
+                base_icon = srfs.get("Attention", srfs["Icon"])
+                overlay = srfs.get("Overlay", None)
 
-        with cairocffi.Context(icon) as ctx:
-            scale = size / icon_size
-            ctx.scale(scale, scale)
-            ctx.set_source_surface(base_icon)
-            ctx.paint()
-            if overlay:
-                ctx.set_source_surface(overlay)
+            with cairocffi.Context(icon) as ctx:
+                scale = size / icon_size
+                ctx.scale(scale, scale)
+                ctx.set_source_surface(base_icon)
                 ctx.paint()
+                if overlay:
+                    ctx.set_source_surface(overlay)
+                    ctx.paint()
 
-        # Store the surface for next time
-        self.surfaces[size] = icon
+            # Store the surface for next time
+            self.surfaces[size] = icon
 
-        return icon
+            return icon
+        finally:
+            if self.lock.locked():
+                self.lock.release()
 
     def activate(self):
         if hasattr(self.item, "call_activate"):
