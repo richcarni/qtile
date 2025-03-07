@@ -450,9 +450,10 @@ class StatusNotifierItem:  # noqa: E303
             base_icon = srfs.get("Attention", srfs["Icon"])
             overlay = srfs.get("Overlay", None)
 
+        icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, icon_size, icon_size)
         with cairocffi.Context(icon) as ctx:
-            scale = size / icon_size
-            ctx.scale(scale, scale)
+            # scale = size / icon_size
+            # ctx.scale(scale, scale)
             ctx.set_source_surface(base_icon)
             ctx.paint()
             if overlay:

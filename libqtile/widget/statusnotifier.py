@@ -20,6 +20,7 @@
 from typing import TYPE_CHECKING
 
 from libqtile import bar
+from libqtile.log_utils import logger
 from libqtile.widget import base
 from libqtile.widget.helpers.status_notifier import has_xdg, host
 
@@ -120,9 +121,18 @@ class StatusNotifier(base._Widget):
         if name in self.mouse_callbacks:
             self.mouse_callbacks[name]()
 
-    def _draw_icon(self, icon, x, y):
-        self.drawer.ctx.set_source_surface(icon, x, y)
+    def _draw_icon(self, icon, x, y, scale):
+        logger.warning(f"scale: {scale}")
+        logger.warning(f"target object: {self.drawer.ctx.get_target()}")
+        self.drawer.ctx.save()
+        self.drawer.ctx.scale(scale, scale)
+        logger.warning(f"xoff: {x}, yoff: {y}")
+        self.drawer.ctx.set_source_surface(icon, x / scale, y / scale)
+        # screen_scale = self.bar.screen.scale
+        # self.drawer.ctx.rectangle(0, 0, int(self.icon_size*screen_scale), int(self.icon_size*screen_scale))
+        # self.drawer.ctx.fill()
         self.drawer.ctx.paint()
+        self.drawer.ctx.restore()
 
     def draw(self):
         self.drawer.clear(self.background or self.bar.background)
@@ -130,8 +140,11 @@ class StatusNotifier(base._Widget):
         yoffset = (self.bar.height - self.icon_size) // 2 if self.bar.horizontal else self.padding
 
         for item in self.available_icons:
-            icon = item.get_icon(self.icon_size)
-            self._draw_icon(icon, xoffset, yoffset)
+            # Should consider returning icon at final resolution?
+            unscaled_icon = item.get_icon(int(self.icon_size * self.bar.screen.scale))
+            scale = self.icon_size / unscaled_icon.get_width()
+            logger.warning(f"scale: {scale}")
+            self._draw_icon(unscaled_icon, xoffset, yoffset, scale)
 
             if self.bar.horizontal:
                 xoffset += self.icon_size + self.padding
