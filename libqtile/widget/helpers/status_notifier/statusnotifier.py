@@ -326,6 +326,7 @@ class StatusNotifierItem:  # noqa: E303
                     icon = found[0]
 
         if icon is not None:
+            logger.debug(f"icon_name: {icon_name}, path: {icon.resolve().as_posix()}")
             return Img.from_path(icon.resolve().as_posix())
 
         return None
@@ -339,6 +340,7 @@ class StatusNotifierItem:  # noqa: E303
         if not path:
             return None
 
+        logger.debug(f"icon_name: {icon_name}, path: {path}")
         return Img.from_path(path)
 
     async def _get_icon(self, icon_name):
@@ -451,6 +453,7 @@ class StatusNotifierItem:  # noqa: E303
             overlay = srfs.get("Overlay", None)
 
         icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, icon_size, icon_size)
+        logger.debug(f"size: {size}, icon_size: {icon_size}")
         with cairocffi.Context(icon) as ctx:
             # scale = size / icon_size
             # ctx.scale(scale, scale)

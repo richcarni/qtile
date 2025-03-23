@@ -122,11 +122,11 @@ class StatusNotifier(base._Widget):
             self.mouse_callbacks[name]()
 
     def _draw_icon(self, icon, x, y, scale):
-        logger.warning(f"scale: {scale}")
-        logger.warning(f"target object: {self.drawer.ctx.get_target()}")
+        # logger.warning(f"scale: {scale}")
+        # logger.warning(f"target object: {self.drawer.ctx.get_target()}")
         self.drawer.ctx.save()
         self.drawer.ctx.scale(scale, scale)
-        logger.warning(f"xoff: {x}, yoff: {y}")
+        # logger.warning(f"xoff: {x}, yoff: {y}")
         self.drawer.ctx.set_source_surface(icon, x / scale, y / scale)
         # screen_scale = self.bar.screen.scale
         # self.drawer.ctx.rectangle(0, 0, int(self.icon_size*screen_scale), int(self.icon_size*screen_scale))
@@ -143,7 +143,7 @@ class StatusNotifier(base._Widget):
             # Should consider returning icon at final resolution?
             unscaled_icon = item.get_icon(int(self.icon_size * self.bar.screen.scale))
             scale = self.icon_size / unscaled_icon.get_width()
-            logger.warning(f"scale: {scale}")
+            logger.debug(f"scale: {scale}")
             self._draw_icon(unscaled_icon, xoffset, yoffset, scale)
 
             if self.bar.horizontal:
