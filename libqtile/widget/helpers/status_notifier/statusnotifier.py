@@ -364,6 +364,11 @@ class StatusNotifierItem:  # noqa: E303
             size: self._reorder_bytes(icon_bytes) for size, _, icon_bytes in icon_pixmap
         }
 
+        if self._pixmaps[icon_name]:
+            logger.debug(f"icon_name: {icon_name}, sizes:")
+            for size in self._pixmaps[icon_name]:
+                logger.debug(size)
+
     def _reorder_bytes(self, icon_bytes):
         """
         Method loops over the array and reverses every
