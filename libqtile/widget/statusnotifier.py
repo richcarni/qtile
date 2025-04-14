@@ -121,7 +121,7 @@ class StatusNotifier(base._Widget):
         if name in self.mouse_callbacks:
             self.mouse_callbacks[name]()
 
-    def _draw_icon(self, icon, x, y, scale):
+    def _draw_icon(self, icon, x, y, scale=1):
         # logger.warning(f"scale: {scale}")
         # logger.warning(f"target object: {self.drawer.ctx.get_target()}")
         self.drawer.ctx.save()
@@ -141,10 +141,10 @@ class StatusNotifier(base._Widget):
 
         for item in self.available_icons:
             # Should consider returning icon at final resolution?
-            unscaled_icon = item.get_icon(int(self.icon_size * self.bar.screen.scale))
-            scale = self.icon_size / unscaled_icon.get_width()
+            scaled_icon = item.get_icon(int(self.icon_size * self.bar.screen.scale))
+            scale = 1 / self.bar.screen.scale
             logger.debug(f"scale: {scale}")
-            self._draw_icon(unscaled_icon, xoffset, yoffset, scale)
+            self._draw_icon(scaled_icon, xoffset, yoffset, scale)
 
             if self.bar.horizontal:
                 xoffset += self.icon_size + self.padding

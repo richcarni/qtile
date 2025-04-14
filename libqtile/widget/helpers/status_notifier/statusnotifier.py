@@ -424,8 +424,13 @@ class StatusNotifierItem:  # noqa: E303
         icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, size, size)
 
         if self.icon:
+            # Need to explicitly set size for svg icons to prevent upscaling.
+            # Attempting to match original Cairo scaling logic.
+            # Do we need better handling of non-square icons?
+            if self.icon.width != size:
+                self.icon.resize(width=size)
             base_icon = self.icon.surface
-            icon_size = base_icon.get_width()
+            icon_size = size
             overlay = None
 
         else:
@@ -457,11 +462,12 @@ class StatusNotifierItem:  # noqa: E303
             base_icon = srfs.get("Attention", srfs["Icon"])
             overlay = srfs.get("Overlay", None)
 
-        icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, icon_size, icon_size)
+        # icon = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, icon_size, icon_size)
         logger.debug(f"size: {size}, icon_size: {icon_size}")
         with cairocffi.Context(icon) as ctx:
-            # scale = size / icon_size
-            # ctx.scale(scale, scale)
+            if icon_size != size:
+                scale = size / icon_size
+                ctx.scale(scale, scale)
             ctx.set_source_surface(base_icon)
             ctx.paint()
             if overlay:
