@@ -241,7 +241,7 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             logger.warning("Invalid border_color specified. Borders will not be displayed.")
             self.border_width = [0, 0, 0, 0]
 
-        self.background_layer_color: ColorType = "000000"
+        self.background_layer_color: ColorsType = "000000"
 
     def _configure(self, qtile: Qtile, screen: Screen, reconfigure: bool = False) -> None:
         """
@@ -303,7 +303,7 @@ class Bar(Gap, configurable.Configurable, CommandObject):
             if qtile.core.name == "x11":
                 depth = (
                     32
-                    if has_transparency(self.background)
+                    if has_transparency(self.background)  # type: ignore[has-type]
                     else qtile.core.conn.default_screen.root_depth
                 )
 
@@ -315,7 +315,7 @@ class Bar(Gap, configurable.Configurable, CommandObject):
                 self.window = qtile.core.create_internal(
                     self.x, self.y, width, height, scale=screen.scale
                 )
-                self.background_layer_color = self.background
+                self.background_layer_color = self.background  # type: ignore[has-type]
                 self.background = "00000000"
                 self.window.set_background(self.background_layer_color)
 

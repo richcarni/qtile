@@ -63,7 +63,7 @@ class Image(base._Widget, base.MarginMixin):
             logger.warning("Image does not exist: %s", self.filename)
             return
 
-        img = Img.from_path(self.filename)
+        img = Img.from_path(self.filename, self.bar.screen.scale)
         self.img = img
         img.theta = self.rotate
         if not self.scale:
@@ -82,6 +82,8 @@ class Image(base._Widget, base.MarginMixin):
         self.drawer.clear(self.background or self.bar.background)
         self.drawer.ctx.save()
         self.drawer.ctx.translate(self.margin_x, self.margin_y)
+        unscale = 1 / self.bar.screen.scale
+        self.drawer.ctx.scale(unscale, unscale)
         self.drawer.ctx.set_source(self.img.pattern)
         self.drawer.ctx.paint()
         self.drawer.ctx.restore()
@@ -96,9 +98,9 @@ class Image(base._Widget, base.MarginMixin):
             return 0
 
         if self.bar.horizontal:
-            return self.img.width + (self.margin_x * 2)
+            return self.img.width / self.bar.screen.scale + (self.margin_x * 2)
         else:
-            return self.img.height + (self.margin_y * 2)
+            return self.img.height / self.bar.screen.scale + (self.margin_y * 2)
 
     @expose_command()
     def update(self, filename):

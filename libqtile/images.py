@@ -153,10 +153,11 @@ class Img:
     Pattern is first stretched, then rotated.
     """
 
-    def __init__(self, bytes_img, name="", path=""):
+    def __init__(self, bytes_img, name="", path="", screen_scale=1):
         self.bytes_img = bytes_img
         self.name = name
         self.path = path
+        self.screen_scale = screen_scale
 
     def _reset(self):
         if hasattr(self, "surface"):
@@ -167,13 +168,13 @@ class Img:
             del self.pattern
 
     @classmethod
-    def from_path(cls, image_path):
+    def from_path(cls, image_path, screen_scale=1):
         "Create an Img instance from image_path"
         with open(image_path, "rb") as fobj:
             bytes_img = fobj.read()
         name = os.path.basename(image_path)
         name, file_type = os.path.splitext(name)
-        return cls(bytes_img, name=name, path=image_path)
+        return cls(bytes_img, name=name, path=image_path, screen_scale=screen_scale)
 
     @property
     def default_surface(self):
@@ -220,6 +221,10 @@ class Img:
         else:
             res = self._scale_free(width_factor, height_factor, self.default_size)
         self.width, self.height = res
+
+        if self.screen_scale != 1:
+            self.width *= self.screen_scale
+            self.height *= self.screen_scale
 
     @staticmethod
     def _scale_lock(width_factor, height_factor, initial_size):
