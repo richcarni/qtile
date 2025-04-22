@@ -148,8 +148,9 @@ class Painter:
         # otherwise they are the image dimensions for fill and stretch mode
         # the actual scaling of the image is then done with wlroots functions
         # so that the GPU is used
-        cairo_w = image_w if mode in ["fill", "stretch"] else int(screen.width * screen.scale)
-        cairo_h = image_h if mode in ["fill", "stretch"] else int(screen.height * screen.scale)
+        scale = screen.scale if screen.scale is not None else 1
+        cairo_w = image_w if mode in ["fill", "stretch"] else int(screen.width * scale)
+        cairo_h = image_h if mode in ["fill", "stretch"] else int(screen.height * scale)
         surface = cairocffi.ImageSurface(cairocffi.FORMAT_ARGB32, cairo_w, cairo_h)
         with cairocffi.Context(surface) as context:
             context.save()
