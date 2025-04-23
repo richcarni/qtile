@@ -82,8 +82,8 @@ class Image(base._Widget, base.MarginMixin):
         self.drawer.clear(self.background or self.bar.background)
         self.drawer.ctx.save()
         self.drawer.ctx.translate(self.margin_x, self.margin_y)
-        unscale = 1 / self.bar.screen.scale
-        self.drawer.ctx.scale(unscale, unscale)
+        if (scale := self.bar.screen.scale) is not None and scale != 1:
+            self.drawer.ctx.scale(1 / scale, 1 / scale)
         self.drawer.ctx.set_source(self.img.pattern)
         self.drawer.ctx.paint()
         self.drawer.ctx.restore()
@@ -97,10 +97,12 @@ class Image(base._Widget, base.MarginMixin):
         if self.img is None:
             return 0
 
+        scale = self.bar.screen.scale if self.bar.screen.scale is not None else 1
+
         if self.bar.horizontal:
-            return self.img.width / self.bar.screen.scale + (self.margin_x * 2)
+            return self.img.width / scale + (self.margin_x * 2)
         else:
-            return self.img.height / self.bar.screen.scale + (self.margin_y * 2)
+            return self.img.height / scale + (self.margin_y * 2)
 
     @expose_command()
     def update(self, filename):

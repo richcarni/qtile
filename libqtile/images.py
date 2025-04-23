@@ -157,7 +157,7 @@ class Img:
         self.bytes_img = bytes_img
         self.name = name
         self.path = path
-        self.screen_scale = screen_scale
+        self.screen_scale = screen_scale if screen_scale is not None else 1
 
     def _reset(self):
         if hasattr(self, "surface"):
