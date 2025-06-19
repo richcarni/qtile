@@ -173,6 +173,7 @@ class Core(base.Core):
 
     def handle_cursor_motion(self, x, y):
         assert self.qtile is not None
+        self._focus_pointer(x, y)
         self.qtile.process_button_motion(x, y)
 
     def handle_cursor_button(self, button, mask, pressed, x, y) -> bool:
@@ -217,6 +218,42 @@ class Core(base.Core):
 
         # TODO logic imcomplete
         win._ptr.focus(win._ptr, False)  # What is the second argument?
+
+    def _under_pointer(self, cx, cy) -> tuple[window.WindowType, Surface | None, float, float] | None:
+        """
+        Find which window and surface is currently under the pointer, if any.
+        """
+        # Warning: this method is a bit difficult to follow and has liberal use of
+        # typing.cast. Make sure you're familiar with how the scene-graph tree is laid
+        # out (see diagram in __init__ above).
+        assert self.qtile is not None
+
+        try:
+            surface_ptr = ffi.new("struct wlr_surface **")
+            sx = ffi.new("double *")
+            sy = ffi.new("double *")
+            maybe_node_ptr = lib.qw_server_view_at(self.qw, cx, cy, surface_ptr, sx, sy)
+        except Exception as e:
+            logger.error(f"ERROR in FFI call: {str(e)}", exc_info=True)
+
+        if maybe_node_ptr == ffi.NULL:
+            # We didn't find any node, so there is no window under the pointer.
+            return None
+
+        return maybe_node_ptr
+
+    def _focus_pointer(self, cx: int, cy: int, motion: int | None = None) -> None:
+        assert self.qtile is not None
+        found = self._under_pointer(cx, cy)
+
+        if found != ffi.NULL:
+            win = self.qtile.windows_map.get(found.wid)
+            # self._hovered_window = win
+
+            try:
+                win.group.focus(win, False)
+            except Exception as e:
+                logger.error(f"ERROR: {str(e)}", exc_info=True)
 
     def finalize(self) -> None:
         lib.qw_server_finalize(self.qw)
