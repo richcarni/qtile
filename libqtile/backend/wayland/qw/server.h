@@ -180,4 +180,6 @@ void qw_server_set_keymap(struct qw_server *server,
                             const char* options,
                             const char* variant);
 
+const char* qw_server_xwayland_display_name(struct qw_server *server);
+
 #endif /* SERVER_H */
