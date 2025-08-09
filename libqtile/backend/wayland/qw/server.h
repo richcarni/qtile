@@ -175,4 +175,6 @@ bool qw_server_change_vt(struct qw_server *server, int vt);
 
 struct qw_cursor *qw_server_get_cursor(struct qw_server *server);
 
+const char* qw_server_xwayland_display_name(struct qw_server *server);
+
 #endif /* SERVER_H */
