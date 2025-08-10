@@ -175,6 +175,18 @@ static void qw_xwayland_view_do_focus(struct qw_xwayland_view *xwayland_view,
 //     free(qw_surface);
 // }
 
+
+static struct wlr_scene_node *qw_xwayland_view_get_tree_node(void *self) {
+    struct qw_xwayland_view *xwayland_view = (struct qw_xwayland_view *)self;
+
+    if (xwayland_view->scene_tree == NULL) {
+        return NULL;
+    }
+
+    return &xwayland_view->scene_tree->node;
+}
+
+
 // Bring the xwayland_view's content scene node to the front
 static void qw_xwayland_view_bring_to_front(void *self) {
     struct qw_xwayland_view *xwayland_view = (struct qw_xwayland_view *)self;
@@ -253,7 +265,6 @@ static void qw_xwayland_view_place(void *self, int x, int y, int width, int heig
         wlr_xwayland_surface_configure(qw_xsurface, x, y, width, height);
         qw_xwayland_view_clip(xwayland_view);
     }
-    return;
 
     // Paint borders around the view with given border colors and width
     qw_view_paint_borders((struct qw_view *)xwayland_view, bc, bw, bn);
@@ -316,6 +327,15 @@ static void qw_xwayland_view_handle_map(struct wl_listener *listener, void *data
     struct qw_xwayland_view *xwayland_view = wl_container_of(listener, xwayland_view, map);
     struct wlr_xwayland_surface *xwayland_surface = xwayland_view->xwayland_surface;
 
+    // Create a subsurface tree for this view under the content tree.
+    xwayland_view->scene_tree =
+        wlr_scene_subsurface_tree_create(xwayland_view->base.content_tree, xwayland_surface->surface);
+
+    if (!xwayland_view->scene_tree) {
+    } else {
+        xwayland_view->scene_tree->node.data = xwayland_view;
+        xwayland_surface->data = xwayland_view;
+    }
     // Set the view's initial dimensions based on the surface.
     xwayland_view->base.width = xwayland_surface->width;
     xwayland_view->base.height = xwayland_surface->height;
@@ -328,13 +348,6 @@ static void qw_xwayland_view_handle_map(struct wl_listener *listener, void *data
     //  Attach a listener to the surface's commit signal.
     wl_signal_add(&xwayland_surface->surface->events.commit, &xwayland_view->commit);
     xwayland_view->commit.notify = qw_xwayland_view_handle_commit;
-
-    // Create a subsurface tree for this view under the content tree.
-    xwayland_view->scene_tree = wlr_scene_subsurface_tree_create(xwayland_view->base.content_tree,
-                                                                 xwayland_surface->surface);
-
-    xwayland_view->scene_tree->node.data = xwayland_view;
-    xwayland_surface->data = xwayland_view;
 
     // Focus the view upon mapping
     // qw_xdg_view_do_focus(xdg_view, xdg_view->xdg_toplevel->base->surface);
@@ -649,7 +662,7 @@ void qw_server_xwayland_view_new(struct qw_server *server,
     xwayland_view->associate.notify = qw_xwayland_view_handle_associate;
 
     // Assign function pointers for base view operations
-    // xdg_view->base.get_tree_node = qw_xdg_view_get_tree_node;
+    xwayland_view->base.get_tree_node = qw_xwayland_view_get_tree_node;
     // xdg_view->base.update_fullscreen = qw_xdg_view_update_fullscreen;
     // xdg_view->base.update_maximized = qw_xdg_view_update_maximized;
     xwayland_view->base.place = qw_xwayland_view_place;
