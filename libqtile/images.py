@@ -302,7 +302,12 @@ class Loader:
     """
 
     def __init__(self, *directories, **kwargs):
-        for k, v in kwargs.items():
+        defaults = {
+            'screen_scale': 1
+        }
+        merged_kwargs = {**defaults, **kwargs}
+
+        for k, v in merged_kwargs.items():
             setattr(self, k, v)
         self.directories = list(directories)
 
@@ -321,7 +326,7 @@ class Loader:
             d_matches = scan_files(directory, *(set_names - seen))
             for name, paths in d_matches.items():
                 if paths:
-                    d[name if name in names else name[:-2]] = Img.from_path(paths[0])
+                    d[name if name in names else name[:-2]] = Img.from_path(paths[0], screen_scale=self.screen_scale)
                     seen.add(name)
 
         if seen != set_names:
