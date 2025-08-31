@@ -29,6 +29,7 @@ import pickle
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import tempfile
 from collections import defaultdict
@@ -51,11 +52,19 @@ from libqtile.core.state import QtileState
 from libqtile.dgroups import DGroups
 from libqtile.extension.base import _Extension
 from libqtile.group import _Group
+from libqtile.interactive.repl import repl_server
 from libqtile.log_utils import logger
 from libqtile.resources.sleep import inhibitor
 from libqtile.scratchpad import ScratchPad
 from libqtile.scripts.main import VERSION
-from libqtile.utils import cancel_tasks, get_cache_dir, lget, remove_dbus_rules, send_notification
+from libqtile.utils import (
+    cancel_tasks,
+    create_task,
+    get_cache_dir,
+    lget,
+    remove_dbus_rules,
+    send_notification,
+)
 from libqtile.widget.base import _Widget
 
 if TYPE_CHECKING:
@@ -147,13 +156,6 @@ class Qtile(CommandObject):
         for button in self.config.mouse:
             self.grab_button(button)
 
-        # no_spawn is set after the very first startup; we only want to run the
-        # startup hook once.
-        if not self.no_spawn:
-            hook.fire("startup_once")
-            self.no_spawn = True
-        hook.fire("startup")
-
         if self._state:
             if isinstance(self._state, str):
                 try:
@@ -169,6 +171,18 @@ class Qtile(CommandObject):
 
         self.core.on_config_load(initial)
 
+        if self.config.reconfigure_screens:
+            hook.subscribe.screen_change(self.reconfigure_screens)
+
+        # no_spawn is set after the very first startup; we only want to run the
+        # startup hook once. Note that this needs to happen *after* the config
+        # is loaded and we have subscribed reconfigure_screens() in case people
+        # do xrandr style manipulation in this hook.
+        if not self.no_spawn:
+            hook.fire("startup_once")
+            self.no_spawn = True
+        hook.fire("startup")
+
         if self._state:
             for screen in self.screens:
                 screen.group.layout.show(screen.get_rect())
@@ -176,9 +190,6 @@ class Qtile(CommandObject):
         self._state = None
         self.update_desktops()
         hook.subscribe.setgroup(self.update_desktops)
-
-        if self.config.reconfigure_screens:
-            hook.subscribe.screen_change(self.reconfigure_screens)
 
         # Start the sleep inhibitor process to listen to sleep signals
         # NB: the inhibitor will only connect to the dbus service if the
@@ -331,6 +342,7 @@ class Qtile(CommandObject):
 
             for screen in self.screens:
                 screen.finalize_gaps()
+
         except:  # noqa: E722
             logger.exception("exception during finalize")
         hook.clear()
@@ -433,9 +445,7 @@ class Qtile(CommandObject):
 
         for screen in self.screens:
             if screen not in screens:
-                for gap in screen.gaps:
-                    if isinstance(gap, bar.Bar) and gap.window:
-                        gap.finalize()
+                screen.finalize_gaps()
 
         self.screens = screens
 
@@ -1276,7 +1286,11 @@ class Qtile(CommandObject):
 
     @expose_command()
     def spawn(
-        self, cmd: list[str] | str, shell: bool = False, env: dict[str, str] = dict()
+        self,
+        cmd: list[str] | str,
+        shell: bool = False,
+        env: dict[str, str] = dict(),
+        group: str | None = None,
     ) -> int:
         """
         Spawn a new process.
@@ -1290,6 +1304,8 @@ class Qtile(CommandObject):
             -c". This enables the use of shell syntax within the command (e.g. pipes).
         env:
             Dictionary of environmental variables to pass with command.
+        group:
+            Name of group in which to spawn process.
 
         Examples
         ========
@@ -1330,9 +1346,24 @@ class Qtile(CommandObject):
                 (os.POSIX_SPAWN_DUP2, 2, null.fileno()),
             ]
 
+            # To create a rule to move process to a specific group and manage race conditions
+            # we need to do the following:
+            # 1) Create a socket pair so we can communicate to child process
+            # 2) Spawn a "qtile launch" process and pass the file descriptor
+            # 3) Have "qtile launch" notify qtile that it's ready
+            # 4) Create a rule using the pid from step 2
+            # 5) Send a message over the socket to "qtile launch"
+            # 6) Once the message is received, "qtile launch" execs the desired process
+            if group is not None:
+                parent_sock, child_sock = socket.socketpair()
+                # socket pair fds are non-inheritable by default but we need this to survice
+                os.set_inheritable(child_sock.fileno(), True)
+
             # this API is only available on python 3.13 or above, and only on platforms
             # where posix_spawn_file_actions_addclosefrom_np() exists (only glibc on Linux).
-            if hasattr(os, "POSIX_SPAWN_CLOSEFROM"):
+            # where we're creating a rule to manage the group, we'll handle closing fds in
+            # `qtile launch`
+            if hasattr(os, "POSIX_SPAWN_CLOSEFROM") and group is None:
                 # we should close all fds so that child processes don't
                 # accidentally write to our x11 event loop or whatever; we never
                 # used to do this, so it seems fine to only do it where this nice
@@ -1340,7 +1371,28 @@ class Qtile(CommandObject):
                 file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
 
             try:
-                return os.posix_spawnp(args[0], args, env, file_actions=file_actions)
+                if group is not None:
+                    # As per step 2 (above) we want to launch the process via "qtile launch"
+                    args = ["qtile", "launch", "--fd", f"{child_sock.fileno()}"] + args
+                pid = os.posix_spawnp(args[0], args, env, file_actions=file_actions)
+                if group is not None:
+                    # Listen for READY message from `qtile launch`
+                    data = parent_sock.recv(5)
+
+                    if data != b"READY":
+                        logger.warning("Received unexpected data: {data!r}")
+
+                    # Create the group matching rule
+                    match_args = {"net_wm_pid": pid}
+                    rule_args = {"group": group, "one_time": True}
+                    self.add_rule(match_args=match_args, rule_args=rule_args)
+
+                    # Tell child process it can now spawn main proces as rule has been added
+                    parent_sock.send(b"OK")
+
+                    parent_sock.close()
+                    child_sock.close()
+                return pid
             except OSError as e:
                 logger.warning("failed to execute: %s: %s", str(args), str(e))
                 return -1
@@ -1820,3 +1872,14 @@ class Qtile(CommandObject):
     def fire_user_hook(self, hook_name: str, *args: Any) -> None:
         """Fire a custom hook."""
         hook.fire(f"user_{hook_name}", *args)
+
+    @expose_command()
+    def start_repl_server(self, locals_dict: dict[str, Any] = dict()) -> None:
+        """Start the REPL server."""
+        _locals = {"qtile": self, **locals_dict}
+        create_task(repl_server.start(locals_dict=_locals))
+
+    @expose_command()
+    def stop_repl_server(self) -> None:
+        """Stop the REPL server."""
+        create_task(repl_server.stop())

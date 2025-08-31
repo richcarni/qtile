@@ -1,4 +1,17 @@
 Qtile x.xx.x, released xxxx-xx-xx:
+    * features
+    * bugfixes
+
+Qtile 0.33.0, released 2025-07-24:
+    !!! breaking changes !!!
+      - Remove CurrentLayoutIcon, functionality merged with CurrentLayout
+    * features
+      - Add support for orientation vertical to the new CurrentLayout widget
+      - Draw icon and text together with the same CurrentLayout widget
+    * bugfixes
+      - rearrange default screen ordering to try and match xrandr's
+
+Qtile 0.32.0, released 2025-06-09:
     !!! breaking changes !!!
       - Output of `qtile cmd-obj` is now in JSON.
     * features
@@ -7,6 +20,7 @@ Qtile x.xx.x, released xxxx-xx-xx:
     * bugfixes
         - `window.can_steal_focus = False` should be set in a `group_window_add` instead of the previously recommended `client_new` hook.
         - Fix Xwayland popup windows that fail to reappear #5155
+        - Wayland: retain keybindings when switching keyboard layouts
 
 Qtile 0.31.0, released 2025-03-07:
     !!! breaking changes !!!

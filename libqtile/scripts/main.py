@@ -4,7 +4,18 @@ import sys
 from pathlib import Path
 
 from libqtile.log_utils import get_default_log, init_log
-from libqtile.scripts import check, cmd_obj, migrate, run_cmd, shell, start, top, udev
+from libqtile.scripts import (
+    check,
+    cmd_obj,
+    launch,
+    migrate,
+    repl,
+    run_cmd,
+    shell,
+    start,
+    top,
+    udev,
+)
 
 try:
     # Python>3.7 can get the version from importlib
@@ -13,14 +24,6 @@ try:
     VERSION = distribution("qtile").version
 except PackageNotFoundError:
     VERSION = "dev"
-
-
-def check_folder(value):
-    path = Path(value)
-    if not path.parent.is_dir():
-        raise argparse.ArgumentTypeError("Log path destination folder does not exist.")
-    # init_log expects a Path object so return `path` not `value`
-    return path
 
 
 def main():
@@ -39,7 +42,7 @@ def main():
         "--log-path",
         default=get_default_log(),
         dest="log_path",
-        type=check_folder,
+        type=Path,
         help="Set alternative qtile log path",
     )
     main_parser = argparse.ArgumentParser(
@@ -62,6 +65,8 @@ def main():
     check.add_subcommand(subparsers, [parent_parser])
     migrate.add_subcommand(subparsers, [parent_parser])
     udev.add_subcommand(subparsers, [parent_parser])
+    launch.add_subcommand(subparsers, [parent_parser])
+    repl.add_subcommand(subparsers, [parent_parser])
 
     # `qtile help` should print help
     def print_help(options):

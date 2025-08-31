@@ -104,8 +104,6 @@ class _GroupBase(base._TextBox, base.PaddingMixin, base.MarginMixin):
         highlighted=False,
     ):
         self.layout.text = self.fmt.format(text)
-        self.layout.font_family = self.font
-        self.layout.font_size = self.fontsize
         self.layout.colour = textcolor
         if width is not None:
             self.layout.width = width
@@ -167,7 +165,7 @@ class AGroupBox(_GroupBase):
         self.drawer.clear(self.background or self.bar.background)
         e = next(i for i in self.qtile.groups if i.name == self.bar.screen.group.name)
         self.drawbox(self.margin_x, e.name, self.border, self.foreground)
-        self.drawer.draw(offsetx=self.offset, offsety=self.offsety, width=self.width)
+        self.draw_at_default_position()
 
 
 class GroupBox(_GroupBase):
@@ -409,4 +407,4 @@ class GroupBox(_GroupBase):
                 highlighted=to_highlight,
             )
             offset += bw + self.spacing
-        self.drawer.draw(offsetx=self.offset, offsety=self.offsety, width=self.width)
+        self.draw_at_default_position()

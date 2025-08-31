@@ -202,13 +202,13 @@ drawings are set out below.
 
 It is important to note that the bar controls the placing of the widget by
 assigning the ``offsetx`` value (for horizontal positioning) and ``offsety``
-value (for vertical positioning). Widgets should use this at the end of the
-``draw`` method. Both ``offsetx`` and ``offsety`` are required as both values will
-be set if the bar is drawing a border.
+value (for vertical positioning). While the widget controls its ``width`` and
+``height``. These four values should be use at the end of the ``draw`` method.
+It is recommended to call this helper function to do it automatically:
 
 .. code:: python
 
-    self.drawer.draw(offsetx=self.offsetx, offsety=self.offsety, width=self.width)
+    self.draw_at_default_position()
 
 .. note::
 
@@ -281,7 +281,7 @@ Drawing the image is then just a matter of painting it to the relevant surface:
     def draw(self):
         self.drawer.ctx.set_source(self.surfaces[img_name])  # Use correct key here for your image
         self.drawer.ctx.paint()
-        self.drawer.draw(offsetx=self.offset, width=self.length)
+        self.draw_at_default_position()
 
 Drawing shapes
 --------------
@@ -352,6 +352,17 @@ background. Usually this is done by including the following line at the start of
 
 The background can be a single colour or a list of colours which will result in a linear gradient
 from top to bottom.
+
+Vertical Orientation
+--------------------
+
+If you plan to support vertical orientation in your widget, after calling
+``self.drawer.clear`` and ``self.drawer.ctx.save`` place this function
+in the ``draw`` method:
+
+.. code:: python
+
+    self.rotate_drawer()
 
 Updating the widget
 ===================
@@ -678,10 +689,3 @@ of the bar then you need a few extra steps:
         # Take a screenshot. Will take screenshot of whole bar unless
         # a `width` parameter is set.
         bar.take_screenshot(target, width=width)
-
-Getting help
-============
-
-If you still need help with developing your widget then please submit a question in the
-`qtile-dev group <https://groups.google.com/forum/#!forum/qtile-dev>`_ or submit an issue
-on the github page if you believe there's an error in the codebase.

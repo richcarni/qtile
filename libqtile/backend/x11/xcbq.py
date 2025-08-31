@@ -402,15 +402,31 @@ class Xinerama:
 class RandR:
     def __init__(self, conn):
         self.ext = conn.conn(xcffib.randr.key)
-        self.ext.SelectInput(conn.default_screen.root.wid, xcffib.randr.NotifyMask.ScreenChange)
 
     def query_crtcs(self, root):
         infos = []
-        for crtc in self.ext.GetScreenResources(root).reply().crtcs:
-            crtc_info = self.ext.GetCrtcInfo(crtc, xcffib.CurrentTime).reply()
+        primary = self.ext.GetOutputPrimary(root).reply().output
+        for output in self.ext.GetScreenResources(root).reply().outputs:
+            info = self.ext.GetOutputInfo(output, xcffib.CurrentTime).reply()
 
-            infos.append(ScreenRect(crtc_info.x, crtc_info.y, crtc_info.width, crtc_info.height))
+            # ignore outputs with no monitor plugged in
+            if not info.crtc:
+                continue
+
+            crtc_info = self.ext.GetCrtcInfo(info.crtc, xcffib.CurrentTime).reply()
+
+            rect = ScreenRect(crtc_info.x, crtc_info.y, crtc_info.width, crtc_info.height)
+
+            # prepend the primary output, append all others in screen
+            # resources order
+            if primary == output:
+                infos.insert(0, rect)
+            else:
+                infos.append(rect)
         return infos
+
+    def enable_screen_change_notifications(self, conn):
+        self.ext.SelectInput(conn.default_screen.root.wid, xcffib.randr.NotifyMask.ScreenChange)
 
 
 class XFixes:
@@ -481,7 +497,9 @@ class Connection:
 
     @property
     def pseudoscreens(self):
-        if hasattr(self, "xinerama"):
+        if hasattr(self, "randr"):
+            return self.randr.query_crtcs(self.screens[0].root.wid)
+        elif hasattr(self, "xinerama"):
             pseudoscreens = []
             for i, s in enumerate(self.xinerama.query_screens()):
                 scr = ScreenRect(
@@ -492,8 +510,15 @@ class Connection:
                 )
                 pseudoscreens.append(scr)
             return pseudoscreens
-        elif hasattr(self, "randr"):
-            return self.randr.query_crtcs(self.screens[0].root.wid)
+        raise Exception("no randr or xinerama?")
+
+    def enable_screen_change_notifications(self):
+        if not hasattr(self, "randr"):
+            logger.warning(
+                "no randr configured for this X server, screen change notifications disabled"
+            )
+            return
+        self.randr.enable_screen_change_notifications(self)
 
     def finalize(self):
         self.cursors.finalize()
@@ -744,12 +769,19 @@ class Painter:
                     height_ratio = screen.height / image_h
                     context.translate(-(image_w * height_ratio - screen.width) // 2, 0)
                     context.scale(height_ratio)
+                context.set_source_surface(image)
             elif mode == "stretch":
                 context.scale(
                     sx=screen.width / image.get_width(),
                     sy=screen.height / image.get_height(),
                 )
-            context.set_source_surface(image)
+                context.set_source_surface(image)
+            elif mode == "center":
+                target_x = (screen.width - image.get_width()) / 2
+                target_y = (screen.height - image.get_height()) / 2
+                context.set_source_surface(image, x=target_x, y=target_y)
+            else:
+                context.set_source_surface(image)
             context.paint()
 
         surface.finish()

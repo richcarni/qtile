@@ -25,7 +25,6 @@ Qtile is supported by a dedicated group of users. If you need any help, please
 don't hesitate to fire off an email to our mailing list or join us on IRC. You
 can also ask questions on the discussions board.
 
-:Mailing List: https://groups.google.com/group/qtile-dev
 :Q&A: https://github.com/qtile/qtile/discussions/categories/q-a
 :IRC: irc://irc.oftc.net:6667/qtile
 :Discord: https://discord.gg/ehh233wCrC (Bridged with IRC)
@@ -52,7 +51,7 @@ Please also consider submitting useful scripts etc. to the qtile-examples repo
 .. _`tips & tricks`: https://docs.qtile.org/en/latest/manual/hacking.html
 .. _`guidelines`: https://docs.qtile.org/en/latest/manual/contributing.html
 
-.. |logo| image:: https://raw.githubusercontent.com/qtile/qtile/master/logo.png
+.. |logo| image:: https://raw.githubusercontent.com/qtile/qtile/master/libqtile/resources/logo.png
     :alt: Logo
     :target: https://qtile.org
 .. |website| image:: https://img.shields.io/badge/website-qtile.org-blue.svg

@@ -72,7 +72,7 @@ class VerticalClock(Clock):
 
         if isinstance(self.foreground, str):
             self.foreground = self._to_list(self.foreground)
-        elif not isinstance(self.fontsize, list):
+        elif not isinstance(self.foreground, list):
             raise ConfigError("foreground should be a string or a list of strings.")
 
         if len(self.fontsize) != len(self.format):
@@ -105,11 +105,7 @@ class VerticalClock(Clock):
 
     @property
     def can_draw(self):
-        can_draw = (
-            all(layout is not None and not layout.finalized() for layout in self.layouts)
-            and self.offsetx is not None
-        )  # if the bar hasn't placed us yet
-        return can_draw
+        return all(layout is not None for layout in self.layouts)
 
     # adding .5 to get a proper seconds value because glib could
     # theoreticaly call our method too early and we could get something
@@ -136,12 +132,11 @@ class VerticalClock(Clock):
             offset += layout.height + self.actual_padding
             self.drawer.ctx.restore()
 
-        self.drawer.draw(
-            offsetx=self.offsetx, offsety=self.offsety, width=self.width, height=self.height
-        )
+        self.draw_at_default_position()
 
     def finalize(self):
         for layout in self.layouts:
             layout.finalize()
+            layout = None
 
         base._Widget.finalize(self)

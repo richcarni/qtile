@@ -421,7 +421,10 @@ class Screen(CommandObject):
     default, the image will be placed at the screens origin and retain its own
     dimensions. If the mode is ``"fill"``, the image will be centred on the screen and
     resized to fill it. If the mode is ``"stretch"``, the image is stretched to fit all
-    of it into the screen.
+    of it into the screen. If the mode is ``"center"``, the image is centered
+    on the screen. The ``"background"`` painting is done before the image is
+    drawn, so you can set the background color for an image by setting
+    background here.
 
     The ``x11_drag_polling_rate`` parameter specifies the rate for drag events in the X11 backend. By default this is set to None, indicating no limit. Because in the X11 backend we already handle motion notify events later, the performance should already be okay. However, to limit these events further you can use this variable and e.g. set it to your monitor refresh rate. 60 would mean that we handle a drag event 60 times per second.
 
@@ -464,6 +467,42 @@ class Screen(CommandObject):
         self.scale = scale
         self.previous_group: _Group | None = None
 
+    def __eq__(self, other: object) -> bool:
+        # When we trigger a reconfigure_screens(), _process_screens()
+        # re-creates the Screen() objects. Since we only replace qtile.screens,
+        # groups, widgets, etc. which have saved a reference to the Screen
+        # object will cause comparisons to fail even if a Screen object after
+        # reconfiguration represents the same geometry area, which is generally
+        # not what people expect.
+        #
+        # For example, this happens here:
+        # https://github.com/qtile/qtile/blob/42e03cdb6bbb6d88f0fd58927c6ec6258f625961/libqtile/group.py#L167-L168
+        # which does:
+        #
+        #     if self.current_window and self.screen == self.qtile.current_screen:
+        #         self.current_window.focus(warp)
+        #
+        # This will fail, because the group's object is stale, and we will not
+        # focus things correctly. This is one example, but there are several
+        # other object trees that save copies of the current screen.
+        #
+        # One problem with this approach is: if the reconfigure_screens() event
+        # comes as a result of a geometry change, this comparison will still
+        # fail. To fix this, we need to uniquely identify each Screen, which we
+        # can do via EDID info in some future work. For now, this makes things
+        # better than it was :)
+        if not isinstance(other, Screen):
+            return False
+        return (
+            other.x == self.x
+            and other.y == self.y
+            and other.width == self.width
+            and other.height == self.height
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.x, self.y, self.width, self.height))
+
     def _configure(
         self,
         qtile: Qtile,
@@ -484,15 +523,21 @@ class Screen(CommandObject):
         self.height = height
         self.scale = scale
 
-        for i in self.gaps:
-            i._configure(qtile, self, reconfigure=reconfigure_gaps)
+        for gap in self.gaps:
+            try:
+                gap._configure(qtile, self, reconfigure=reconfigure_gaps)
+            except Exception:
+                logger.exception(f"Error configuring {gap.position} gap/bar.")
+                # Call finalize to prevent future execution of the _actual_draw method
+                self.finalize_gap(gap.position)
+
         self.set_group(group)
 
-        if self.wallpaper:
+        if self.background is not None:
+            self.qtile.fill_screen(self, self.background)
+        if self.wallpaper is not None:
             self.wallpaper = os.path.expanduser(self.wallpaper)
             self.paint(self.wallpaper, self.wallpaper_mode)
-        elif self.background:
-            self.qtile.fill_screen(self, self.background)
 
     def paint(self, path: str, mode: str | None = None) -> None:
         if self.qtile:
@@ -502,15 +547,15 @@ class Screen(CommandObject):
     def gaps(self) -> Iterable[BarType]:
         return (i for i in [self.top, self.bottom, self.left, self.right] if i)
 
-    def finalize_gaps(self) -> None:
-        def remove(attr: str) -> None:
-            gap = getattr(self, attr, None)
-            if gap is not None:
-                setattr(self, attr, None)
-                gap.finalize()
+    def finalize_gap(self, position: str) -> None:
+        gap = getattr(self, position, None)
+        if gap is not None:
+            setattr(self, position, None)
+            gap.finalize()
 
-        for attr in ["top", "bottom", "left", "right"]:
-            remove(attr)
+    def finalize_gaps(self) -> None:
+        for position in ["top", "bottom", "left", "right"]:
+            self.finalize_gap(position)
 
     @property
     def dx(self) -> int:
@@ -1099,6 +1144,8 @@ class Rule:
         Should we override the group's exclusive setting?
     break_on_match:
         Should we stop applying rules if this rule is matched?
+    one_time:
+        Should we delete rule once if it has been matched?
 
     """
 
@@ -1109,6 +1156,7 @@ class Rule:
         float: bool = False,
         intrusive: bool = False,
         break_on_match: bool = True,
+        one_time: bool = False,
     ) -> None:
         if isinstance(match, _Match):
             self.matchlist = [match]
@@ -1118,6 +1166,7 @@ class Rule:
         self.float = float
         self.intrusive = intrusive
         self.break_on_match = break_on_match
+        self.one_time = one_time
 
     def matches(self, w: base.Window) -> bool:
         return any(w.match(m) for m in self.matchlist)
