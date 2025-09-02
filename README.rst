@@ -1,5 +1,7 @@
 ⚠️ This fork adds a proof-of-concept implementation of HiDPI support for internal windows, such as the bar
 
+------
+
 |logo|
 
 **A full-featured, hackable tiling window manager written and configured in Python**
