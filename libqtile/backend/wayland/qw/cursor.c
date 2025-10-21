@@ -191,6 +191,8 @@ static void qw_cursor_handle_axis(struct wl_listener *listener, void *data) {
     static uint32_t last_scroll_time = 0;
     static int last_scroll_dir = 0;
     static enum wl_pointer_axis last_scroll_axis;
+    static double displacement = 0;
+    static const uint32_t DISPLACEMENT_PER_STEP = 15; // could be configurable
 
     bool handled = false;
     // TODO: exclusive client and implicit grab
@@ -206,22 +208,21 @@ static void qw_cursor_handle_axis(struct wl_listener *listener, void *data) {
     uint32_t button_mapped = qw_util_get_button_code(button);
 
     // If it's a physical wheel fire callbacl immediately if there is a discrete delta
-    if (event->source == WL_POINTER_AXIS_SOURCE_WHEEL && event->delta_discrete != 0.0) {
+    if (event->source == WL_POINTER_AXIS_SOURCE_WHEEL && event->delta_discrete != 0) {
         handled = qw_cursor_process_button(cursor, button_mapped, true);
-        // for anything else, we're using rate limiting
     } else if (event->source != WL_POINTER_AXIS_SOURCE_WHEEL) {
-        // Touchpad or smooth scroll: throttle events to 50ms
-        int dir = (event->delta > 0) ? +1 : -1;
-        uint32_t now = event->time_msec;
+        // Touchpad or smooth scroll: integrate displacement
+        displacement += event->delta;
+        wlr_log(WLR_ERROR, "scroll displacement: %f", displacement);
 
-        if ((now - last_scroll_time >= QW_SCROLL_CALLBACK_INTERVAL_MS) ||
-            (dir != last_scroll_dir) || (event->orientation != last_scroll_axis)) {
-
-            handled = qw_cursor_process_button(cursor, button_mapped, true);
-
-            last_scroll_time = now;
-            last_scroll_dir = dir;
-            last_scroll_axis = event->orientation;
+        double abs_displacement = fabs(displacement);
+        if (abs_displacement >= DISPLACEMENT_PER_STEP) {
+            int steps = (int)(abs_displacement / DISPLACEMENT_PER_STEP);
+            displacement = fmod(displacement, DISPLACEMENT_PER_STEP);
+            wlr_log(WLR_ERROR, "steps: %i", steps);
+            for (int step=0; step<steps; step++) {
+                handled = qw_cursor_process_button(cursor, button_mapped, true);
+            }
         }
     }
 
