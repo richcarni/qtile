@@ -209,8 +209,10 @@ static void qw_cursor_handle_axis(struct wl_listener *listener, void *data) {
 
     // If it's a physical wheel fire callbacl immediately if there is a discrete delta
     if (event->source == WL_POINTER_AXIS_SOURCE_WHEEL && event->delta_discrete != 0) {
+        wlr_log(WLR_ERROR, "discrete: %i", event->delta_discrete);
         handled = qw_cursor_process_button(cursor, button_mapped, true);
     } else if (event->source != WL_POINTER_AXIS_SOURCE_WHEEL) {
+        wlr_log(WLR_ERROR, "discrete: %i", event->delta_discrete);
         // Touchpad or smooth scroll: integrate displacement
         displacement += event->delta;
         wlr_log(WLR_ERROR, "scroll displacement: %f", displacement);
