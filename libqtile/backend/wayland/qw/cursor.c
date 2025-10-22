@@ -214,16 +214,20 @@ static void qw_cursor_handle_axis(struct wl_listener *listener, void *data) {
     } else if (event->source != WL_POINTER_AXIS_SOURCE_WHEEL) {
         wlr_log(WLR_ERROR, "discrete: %i", event->delta_discrete);
         // Touchpad or smooth scroll: integrate displacement
-        displacement += event->delta;
-        wlr_log(WLR_ERROR, "scroll displacement: %f", displacement);
+        if (event->delta == 0.0) {
+            displacement = 0.0;
+        } else {
+            displacement += event->delta;
+            wlr_log(WLR_ERROR, "scroll displacement: %f", displacement);
 
-        double abs_displacement = fabs(displacement);
-        if (abs_displacement >= DISPLACEMENT_PER_STEP) {
-            int steps = (int)(abs_displacement / DISPLACEMENT_PER_STEP);
-            displacement = fmod(displacement, DISPLACEMENT_PER_STEP);
-            wlr_log(WLR_ERROR, "steps: %i", steps);
-            for (int step=0; step<steps; step++) {
-                handled = qw_cursor_process_button(cursor, button_mapped, true);
+            double abs_displacement = fabs(displacement);
+            if (abs_displacement >= DISPLACEMENT_PER_STEP) {
+                int steps = (int)(abs_displacement / DISPLACEMENT_PER_STEP);
+                displacement = fmod(displacement, DISPLACEMENT_PER_STEP);
+                wlr_log(WLR_ERROR, "steps: %i", steps);
+                for (int step=0; step<steps; step++) {
+                    handled = qw_cursor_process_button(cursor, button_mapped, true);
+                }
             }
         }
     }
