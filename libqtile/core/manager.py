@@ -392,6 +392,7 @@ class Qtile(CommandObject):
     def _process_screens(self, reloading: bool = False) -> None:
         current_groups = [s.group for s in self.screens]
         screens = []
+        current_screen_still_active = False
 
         if hasattr(self.config, "fake_screens"):
             output_info = [
@@ -469,6 +470,9 @@ class Qtile(CommandObject):
                 self.current_screen = scr
                 reloading = False
 
+            if self.current_screen.name == scr.name:
+                current_screen_still_active = True
+
             grp = None
             if i < len(current_groups):
                 grp = current_groups[i]
@@ -510,6 +514,11 @@ class Qtile(CommandObject):
         for screen in self.screens:
             if screen not in screens:
                 screen.finalize_gaps()
+
+        if hasattr(self, "current_screen") and not current_screen_still_active:
+            del self.current_screen
+            self.config.load()
+            self._process_screens()
 
         self.screens = screens
 
