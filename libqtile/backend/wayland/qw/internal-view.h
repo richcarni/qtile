@@ -12,6 +12,7 @@ struct qw_internal_view {
     struct wlr_scene_buffer *scene_buffer;
     struct wlr_buffer *buffer;
     cairo_surface_t *image_surface;
+    int image_surface_serial;
     double scale;
 };
 

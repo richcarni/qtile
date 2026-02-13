@@ -259,6 +259,7 @@ class Internal(Base, base.Internal):
         ptr.base.wid = wid
         self._internal_ptr = ptr
         self._killed = False
+        self._cairo_surface = None
 
     @property
     def surface(self) -> ffi.CData:

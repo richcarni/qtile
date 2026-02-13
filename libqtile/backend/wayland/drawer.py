@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import cairocffi
 
 from libqtile.backend.base import drawer
+from libqtile.log_utils import logger 
 
 if TYPE_CHECKING:
     from libqtile.backend.wayland.window import Internal
@@ -22,6 +23,20 @@ class Drawer(drawer.Drawer):
 
     def __init__(self, win: Internal, width: int, height: int):
         drawer.Drawer.__init__(self, win, width, height)
+        # Cairo surface reference count is incremented manually in c
+
+        if self._win._cairo_surface is None or self._win._internal_ptr.image_surface_serial != self._win.last_serial:
+            # wrap without taking ownership
+            self._win._cairo_surface = cairocffi.Surface._from_pointer(self._win.surface, False)
+            self._win.last_serial = self._win._internal_ptr.image_surface_serial
+
+
+        refcount = cairocffi.cairo.cairo_surface_get_reference_count(self._win.surface)
+
+        logger.warning(f"### {refcount}")
+        logger.warning(
+            cairocffi.cairo.cairo_surface_status(self._win.surface)
+        )
 
     def _draw(
         self,
@@ -49,11 +64,12 @@ class Drawer(drawer.Drawer):
 
         # Paint recorded operations to our window's underlying ImageSurface
         # Allocation could have failed or surface may have been destroyed, NULL check
-        if not self._win.surface:
+        if not self._win._cairo_surface:
             return
-        surface = cairocffi.Surface._from_pointer(self._win.surface, True)  # type: ignore[attr-defined]
-        with cairocffi.Context(surface) as context:
-            context.set_operator(cairocffi.OPERATOR_SOURCE)
+        self._win._cairo_surface.flush()
+        # surface = cairocffi.Surface._from_pointer(self._win.surface, True)  # type: ignore[attr-defined]
+        with cairocffi.Context(self._win._cairo_surface) as context:
+            context.set_operator(cairocffi.OPERATOR_OVER)
             # Scale the cairo surface by its output (display) scale
             context.scale(scale, scale)
             # Adjust the source surface position by src_x and src_y e.g. if we want
@@ -62,4 +78,7 @@ class Drawer(drawer.Drawer):
             context.rectangle(offsetx, offsety, width, height)
             context.fill()
 
+        self._win._cairo_surface.mark_dirty()
+
         self._win.set_buffer_with_damage(offsetx, offsety, width, height)
+

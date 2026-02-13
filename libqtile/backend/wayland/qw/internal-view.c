@@ -15,6 +15,9 @@
 // cairo largely uses vector drawing primitives, this produces a sharper result than letting wayland
 // upscale for us. We need to set the destination size for wayland to correctly scale the buffer
 static void qw_internal_view_buffer_new(struct qw_internal_view *view, bool init) {
+    static int count = 0;
+    wlr_log(WLR_ERROR,"new count %d", count);
+    count++;
     if (!init) {
         wlr_buffer_drop(view->buffer);
     }
@@ -22,9 +25,20 @@ static void qw_internal_view_buffer_new(struct qw_internal_view *view, bool init
     int scaled_width = (int)(view->base.width * view->scale);
     int scaled_height = (int)(view->base.height * view->scale);
 
+    if (view->image_surface) {
+            cairo_surface_destroy(view->image_surface);
+            view->image_surface = NULL;
+        }
     // Create a new Cairo image surface with ARGB32 format
     view->image_surface =
         cairo_image_surface_create(CAIRO_FORMAT_ARGB32, scaled_width, scaled_height);
+    // Increase reference count manually for python reference to avoid potential race condidtion
+    cairo_surface_reference(view->image_surface);
+    // Update surface serial so python knows to update its reference
+    view->image_surface_serial++;
+
+    wlr_log(WLR_ERROR, ">>>> %d", cairo_surface_get_reference_count(view->image_surface));
+
 
     unsigned char *data = cairo_image_surface_get_data(view->image_surface);
     size_t stride = cairo_image_surface_get_stride(view->image_surface);
@@ -120,6 +134,7 @@ static void qw_internal_view_unhide(void *self) {
 }
 
 static void qw_internal_view_kill(void *self) {
+    wlr_log(WLR_ERROR, "SURFACE DESTROY:");
     struct qw_internal_view *view = (struct qw_internal_view *)self;
     cairo_surface_destroy(view->image_surface);
     view->image_surface = NULL;
