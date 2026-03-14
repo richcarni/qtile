@@ -78,7 +78,8 @@ class Config:
             try:
                 value = settings[key]
             except KeyError:
-                value = getattr(self, key, default.get(key, None))
+                # value = getattr(self, key, default.get(key, None))
+                value = default.get(key, None)
             setattr(self, key, value)
 
     def _reload_config_submodules(self, path: Path) -> None:
