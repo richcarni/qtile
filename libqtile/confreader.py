@@ -75,12 +75,19 @@ class Config:
 
         default = vars(default_config)
         for key in self.__annotations__.keys():
-            try:
+            if key in settings:
                 value = settings[key]
-            except KeyError:
-                # value = getattr(self, key, default.get(key, None))
-                value = default.get(key, None)
+            elif key in default:
+                value = default[key]
+            else:
+                value = None
             setattr(self, key, value)
+            # try:
+            #     value = settings[key]
+            # except KeyError:
+            #     # value = getattr(self, key, default.get(key, None))
+            #     # value = default.get(key, None)
+            # setattr(self, key, value)
 
     def _reload_config_submodules(self, path: Path) -> None:
         """Reloads python files from same folder as config file."""
