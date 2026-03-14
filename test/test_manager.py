@@ -1166,6 +1166,10 @@ def test_reload_config(manager_nospawn):
     def assert_dd_appeared():
         assert "dd" in manager_nospawn.c.group.info()["windows"]
 
+    # DEBUG: What keys are present?
+    keys = manager_nospawn.c.eval("list(self.keys_map.keys())")
+    print(f"DEBUG keys_map: {keys}")
+
     # Original config
     assert manager_nospawn.c.eval("len(self.keys_map)") == "1"
     assert manager_nospawn.c.eval("len(self._mouse_map)") == "1"
