@@ -1170,6 +1170,14 @@ def test_reload_config(manager_nospawn):
     keys = manager_nospawn.c.eval("list(self.keys_map.keys())")
     print(f"DEBUG keys_map: {keys}")
 
+    # Clean up test_data from previous tests
+    try:
+        manager_nospawn.c.eval("del self.test_data")
+    except:
+        pass  # Wasn't set, that's fine
+
+    manager_nospawn.c.reload_config()
+
     # Original config
     assert manager_nospawn.c.eval("len(self.keys_map)") == "1"
     assert manager_nospawn.c.eval("len(self._mouse_map)") == "1"
