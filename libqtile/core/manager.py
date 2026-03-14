@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 import faulthandler
 import io
 import logging
@@ -449,7 +448,7 @@ class Qtile(CommandObject):
 
         for i, info in enumerate(output_info):
             if i < len(config_screens):
-                scr = copy.copy(config_screens[i])
+                scr = config_screens[i]
                 logger.debug(f"using config at index {i} for output {info.port}")
             else:
                 # user didn't supply enough screens, create one
