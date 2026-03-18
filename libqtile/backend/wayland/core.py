@@ -510,7 +510,7 @@ class Core(base.Core):
             if win is None:
                 return
 
-            hook.fire("client_activate_by_click", win)
+            hook.fire("client_focus_by_click", win)
 
             if self.qtile.config.bring_front_click is True:
                 win.bring_to_front()
@@ -904,6 +904,9 @@ class Core(base.Core):
     @expose_command
     def idle_notify_activity(self) -> None:
         lib.qw_server_idle_notify_activity(self.qw)
+
+    def fake_click(self) -> None:
+        lib.qw_cursor_fake_click(self.qw_cursor)
 
 
 class Painter:
