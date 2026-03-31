@@ -6,6 +6,10 @@ pango = ffi.dlopen(find_library(DynamicLibraries.PANGO))  # type: ignore
 pangocairo = ffi.dlopen(find_library(DynamicLibraries.PANGOCAIRO))  # type: ignore
 
 
+def get_default_fontmap():
+    pangocairo.pango_cairo_font_map_get_default()
+
+
 def create_layout(cairo_t):
     """Create a PangoLayout from a cairo context."""
     return PangoLayout(cairo_t._pointer)

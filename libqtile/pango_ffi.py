@@ -11,6 +11,7 @@ pango_ffi.cdef(
     typedef ... PangoLayout;
     typedef ... PangoFontDescription;
     typedef ... PangoAttrList;
+    typedef ... PangoFontMap;
     typedef enum {
         PANGO_ALIGN_LEFT,
         PANGO_ALIGN_CENTER,
@@ -36,6 +37,9 @@ pango_ffi.cdef(
     typedef signed long gssize;
     typedef ... GError;
     typedef int gint;
+
+    PangoFontMap*
+    pango_cairo_font_map_get_default(void);
 
     void
     pango_cairo_show_layout (cairo_t *cr,
