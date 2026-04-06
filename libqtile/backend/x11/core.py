@@ -914,6 +914,16 @@ class Core(base.Core):
                 if window.group.screen is not qtile.current_screen:
                     qtile.focus_screen(window.group.screen.index, warp=False)
                 qtile.current_group.focus(window, warp=False)
+
+                # re-grab button events on the previously focussed window
+                old = self._root.get_property("_NET_ACTIVE_WINDOW", "WINDOW", unpack=int)
+                if old and old[0] in self.qtile.windows_map:
+                    old_win = window.qtile.windows_map[old[0]]
+                    if not isinstance(old_win, base.Internal):
+                        old_win._grab_click()
+                self._root.set_property("_NET_ACTIVE_WINDOW", window.window.wid)
+                window._ungrab_click()
+
             except AttributeError:
                 # probably clicked an internal window
                 screen = qtile.find_screen(e.root_x, e.root_y)

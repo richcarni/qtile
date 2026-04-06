@@ -1295,6 +1295,7 @@ class _Window:
     @expose_command()
     def focus(self, warp: bool = True) -> None:
         """Focuses the window."""
+        old_win = self.qtile.core.last_focused
         did_focus = self._do_focus()
         if not did_focus:
             return
@@ -1317,18 +1318,11 @@ class _Window:
 
         self.window.set_property("_NET_WM_STATE", state)
 
-        # re-grab button events on the previously focussed window
-        old = self.qtile.core._root.get_property("_NET_ACTIVE_WINDOW", "WINDOW", unpack=int)
-        if old and old[0] in self.qtile.windows_map:
-            old_win = self.qtile.windows_map[old[0]]
-            if not isinstance(old_win, base.Internal):
-                old_win._grab_click()
-                state = list(old_win.window.get_property("_NET_WM_STATE", "ATOM", unpack=int))
-                if state_focused in state:
-                    state.remove(state_focused)
-                    old_win.window.set_property("_NET_WM_STATE", state)
-        self.qtile.core._root.set_property("_NET_ACTIVE_WINDOW", self.window.wid)
-        self._ungrab_click()
+        if old_win and old_win is not self and not isinstance(old_win, base.Internal):
+            state = list(old_win.window.get_property("_NET_WM_STATE", "ATOM", unpack=int))
+            if state_focused in state:
+                state.remove(state_focused)
+                old_win.window.set_property("_NET_WM_STATE", state)
 
         # Check if we need to restack a previously focused fullscreen window
         self.qtile.core.check_stacking(self)
