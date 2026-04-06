@@ -423,10 +423,10 @@ class Core(base.Core):
     def handle_cursor_button(self, button: int, mask: int, pressed: bool, x: int, y: int) -> bool:
         assert self.qtile is not None
         if pressed:
-            if not self.qw_cursor.implicit_grab.live:
-                self._focus_by_click()
-
             handled = self.qtile.process_button_click(int(button), int(mask), x, y)
+
+            if not handled and not self.qw_cursor.implicit_grab.live:
+                self._focus_by_click()
 
             if isinstance(self.qtile.hovered_window, Internal):
                 self.qtile.hovered_window.process_button_click(
@@ -507,8 +507,12 @@ class Core(base.Core):
 
         if view != ffi.NULL:
             win = self.qtile.windows_map.get(view.wid)
+            if win is None:
+                return
 
-            if win is not None and self.qtile.config.bring_front_click is True:
+            hook.fire("client_activate_by_click", win)
+
+            if self.qtile.config.bring_front_click is True:
                 win.bring_to_front()
             elif self.qtile.config.bring_front_click == "floating_only":
                 if isinstance(win, base.Window) and win.floating:
@@ -518,11 +522,19 @@ class Core(base.Core):
                 if win.screen is not self.qtile.current_screen:
                     self.qtile.focus_screen(win.screen.index, warp=False)
                 win.focus(False)
-            elif isinstance(win, base.Window):
+            elif isinstance(win, Window):
                 if win.group and win.group.screen is not self.qtile.current_screen:
                     self.qtile.focus_screen(win.group.screen.index, warp=False)
                 self.qtile.current_group.focus(win, False)
 
+                # re-grab button events on the previously active window
+                old = self.qw.active_view
+                if old != ffi.NULL and old.wid != ffi.NULL and old.wid in self.qtile.windows_map:
+                    old_win = win.qtile.windows_map[old.wid]
+                    assert isinstance(old_win, Window)
+                    old_win._grab_click()
+                self.qw.active_view = view
+                win._ungrab_click()
         else:
             screen = self.qtile.find_screen(
                 int(self.qw_cursor.cursor.x), int(self.qw_cursor.cursor.y)

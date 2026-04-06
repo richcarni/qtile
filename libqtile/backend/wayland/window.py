@@ -375,6 +375,13 @@ class Window(Base, base.Window):
         ptr.request_fullscreen_cb = lib.request_fullscreen_cb
         ptr.set_title_cb = lib.set_title_cb
         ptr.set_app_id_cb = lib.set_app_id_cb
+        self._grab_click()
+
+    def _grab_click(self) -> None:
+        lib.qw_view_grab_click(self._ptr)
+
+    def _ungrab_click(self) -> None:
+        lib.qw_view_ungrab_click(self._ptr)
 
     def handle_request_focus(self) -> bool:
         logger.debug("Focusing window from external request")
@@ -662,6 +669,9 @@ class Window(Base, base.Window):
                     self._float_width,
                     self._float_height,
                 )
+
+                # Make sure floating window is placed above other LAYOUT windows
+                self.move_to_top()
             else:
                 # if we are setting floating early, e.g. from a hook, we don't have a screen yet
                 self._float_state = FloatStates.FLOATING
@@ -790,7 +800,7 @@ class Window(Base, base.Window):
             self.hide()
         else:
             self.place(
-                x, y, w, h, self.borderwidth, self.bordercolor, above=True, respect_hints=True
+                x, y, w, h, self.borderwidth, self.bordercolor, above=False, respect_hints=True
             )
 
     def _tweak_float(

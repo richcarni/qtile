@@ -212,6 +212,7 @@ struct qw_server {
     void *view_activation_cb_data;
     void *cb_data;
     struct qw_layer_view *exclusive_layer;
+    struct qw_view *active_view;
 
     // Private data
     struct wl_event_loop *event_loop;
