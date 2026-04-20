@@ -56,12 +56,34 @@ PROTOS = [
     ],
 ]
 
+CLIENT_PROTOS = [
+    ["xdg-shell-client-protocol", f"{WAYLAND_PROTOCOLS}/stable/xdg-shell/xdg-shell.xml"],
+    [
+        "cursor-shape-v1-client-protocol",
+        f"{WAYLAND_PROTOCOLS}/staging/cursor-shape/cursor-shape-v1.xml",
+    ],
+    ["tablet-v2-client-protocol", f"{WAYLAND_PROTOCOLS}/stable/tablet/tablet-v2.xml"],
+]
+
 QW_PROTO_OUT_PATH = QW_PATH / "proto"
 QW_PROTO_OUT_PATH.mkdir(exist_ok=True)
 
 for proto in PROTOS:
     subprocess.run(
         [WAYLAND_SCANNER, "server-header", proto[1], QW_PROTO_OUT_PATH / proto[0]],
+        text=True,
+        stdout=subprocess.PIPE,
+    ).stdout.strip()
+
+for proto in CLIENT_PROTOS:
+    subprocess.run(
+        [WAYLAND_SCANNER, "client-header", proto[1], QW_PROTO_OUT_PATH / f"{proto[0]}.h"],
+        text=True,
+        stdout=subprocess.PIPE,
+    ).stdout.strip()
+
+    subprocess.run(
+        [WAYLAND_SCANNER, "private-code", proto[1], QW_PROTO_OUT_PATH / f"{proto[0]}.c"],
         text=True,
         stdout=subprocess.PIPE,
     ).stdout.strip()
@@ -243,6 +265,40 @@ def build_objects(debug: bool = False, asan: bool = False) -> None:
         )
 
 
+def build_test_client():
+    root = Path(__file__).parent.parent.parent.parent.parent
+    proto = QW_PROTO_OUT_PATH
+
+    cmd = [
+        "cc",
+        str(root / "test/wayland_clients/src/cursor-shape-v1.c"),
+        str(proto / "xdg-shell-client-protocol.c"),
+        str(proto / "cursor-shape-v1-client-protocol.c"),
+        str(proto / "tablet-v2-client-protocol.c"),
+        "-I",
+        str(proto),
+        "-o",
+        str(root / "test/wayland_clients/bin/cursor-shape-v1"),
+    ]
+
+    pkg = (
+        subprocess.check_output(
+            [
+                "pkg-config",
+                "--cflags",
+                "--libs",
+                "wayland-client",
+            ]
+        )
+        .decode()
+        .split()
+    )
+
+    cmd += pkg
+
+    subprocess.run(cmd, check=True)
+
+
 def ffi_compile(verbose: bool = False, debug: bool = False, asan: bool = False) -> None:
     # The ffi source of "libqtile.backend.wayland._ffi" means that we'll compile the library file
     # at libqtile/backend/wayland/_ffi.so.
@@ -280,6 +336,7 @@ def ffi_compile(verbose: bool = False, debug: bool = False, asan: bool = False) 
     ffi.compile(
         tmpdir=Path(__file__).parent.parent.parent.parent.parent.as_posix(), verbose=verbose
     )
+    build_test_client()
 
 
 if __name__ == "__main__":
