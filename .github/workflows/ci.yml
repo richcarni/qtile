@@ -1,56 +1,118 @@
 name: ci
-
 on:
     push:
     pull_request:
-
 jobs:
     build:
         runs-on: ubuntu-24.04
+        container:
+            image: fedora:44
+            options: --privileged
         name: "python ${{ matrix.python-version }} on ${{ matrix.backend }}"
         strategy:
             matrix:
-                # If you change one of these, be sure to update:
-                # - /pyproject.toml:[tool.mypy]
-                # If adding new python versions, consider also updating
-                # python version in .readthedocs.yaml
-                # TODO: Add back pypy here and in release.yml once:
-                # https://github.com/pypy/pypy/issues/4956 is resolved
                 python-version: ['3.12', '3.13', '3.14']
                 backend: ['x11', 'wayland']
         steps:
+            - name: Install git first (required for checkout in container)
+              run: |
+                dnf install -y git
+
             - uses: actions/checkout@v6
-            - name: Set up python ${{ matrix.python-version }}
-              uses: actions/setup-python@v6
               with:
-                  python-version: ${{ matrix.python-version }}
+                  fetch-depth: 0  # Fetch full git history for setuptools-scm
+
+            - name: Fix git ownership (required for containers)
+              run: |
+                git config --global --add safe.directory /__w/qtile/qtile
+
+            - name: Install system dependencies
+              run: |
+                dnf install -y \
+                  python${{ matrix.python-version }} \
+                  python${{ matrix.python-version }}-devel \
+                  make \
+                  gcc \
+                  gcc-c++ \
+                  which \
+                  findutils \
+                  systemd \
+                  dbus-devel \
+                  gobject-introspection-devel \
+                  gtk3 \
+                  gtk3-devel \
+                  libnotify \
+                  libnotify-devel \
+                  libgudev \
+                  libgudev-devel \
+                  graphviz \
+                  ImageMagick \
+                  xorg-x11-server-Xephyr \
+                  xorg-x11-server-Xvfb \
+                  dbus-x11 \
+                  xcb-util-devel \
+                  xcb-util-image-devel \
+                  xcb-util-keysyms-devel \
+                  xcb-util-renderutil-devel \
+                  xcb-util-wm-devel \
+                  libxcb-devel \
+                  libxkbcommon-devel \
+                  python3-gobject \
+                  cairo-devel \
+                  gdk-pixbuf2-devel \
+                  librsvg2-devel \
+                  xcb-util-cursor \
+                  xterm \
+                  pulseaudio-libs \
+                  wget \
+                  tar \
+                  gzip \
+                  xz
+
             - name: Set up uv
               uses: astral-sh/setup-uv@v7
               with:
                   enable-cache: true
                   cache-dependency-glob: "pyproject.toml"
                   python-version: ${{ matrix.python-version }}
-            - name: Install dependencies
+
+            - name: Install Wayland build dependencies
+              # if: matrix.backend == 'wayland'
               run: |
-                sudo apt update
-                sudo apt install yq
-                sudo apt install -y --no-install-recommends $(yq -r '.build.apt_packages | join(" ")' .readthedocs.yaml)
-                # Any Wayland-specific Ubuntu system dependencies should be installed from ./scripts/ubuntu_wayland_setup
-            - name: Cache Wayland dependencies
-              uses: actions/cache@v5
-              with:
-                path: cache
-                key: ${{ runner.os }}-wayland-${{ hashFiles('scripts/ubuntu_wayland_setup') }}
-                restore-keys: |
-                  ${{ runner.os }}-wayland-
-            - name: Install wayland
-              run: bash -x ./scripts/ubuntu_wayland_setup
+                dnf install -y \
+                  wayland-devel \
+                  wayland-protocols-devel \
+                  mesa-libEGL-devel \
+                  mesa-libgbm-devel \
+                  mesa-libGLES-devel \
+                  libglvnd-devel \
+                  libepoxy-devel \
+                  libinput-devel \
+                  libpciaccess-devel \
+                  xcb-util-errors-devel \
+                  libXfont2-devel \
+                  libxshmfence-devel \
+                  libtirpc-devel \
+                  xorg-x11-font-utils \
+                  xorg-x11-server-devel \
+                  ninja-build \
+                  meson \
+                  libdrm-devel \
+                  pixman-devel \
+                  hwdata \
+                  systemd-devel \
+                  gdb \
+                  xorg-x11-server-Xwayland \
+                  seatd \
+                  wlroots0.19-devel
+
             - name: Clean python version and export to env
               shell: bash
               run: |
                 PYTHON_VERSION="${{ matrix.python-version }}"
                 CLEAN_VERSION="${PYTHON_VERSION%-dev}"
                 echo "QTILE_CI_PYTHON=${CLEAN_VERSION}" >> $GITHUB_ENV
+
             - name: Run Tests
               run: |
                 [ "$(grep -c -P '\t' CHANGELOG)" = "0" ]
@@ -65,6 +127,7 @@ jobs:
                 uv run coverage combine -q
                 uv run coverage report -m
                 uv run coverage xml
+
             - name: Upload coverage data to coveralls.io
               continue-on-error: true
               run: |
