@@ -1,18 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CORE_DIR="/tmp"
+
 source "$(dirname "$0")/ci-env"
 
 [ "$(grep -c -P '\t' CHANGELOG)" = "0" ]
 
-dump_cores() {
-  echo "=== Listing coredumps ==="
-  coredumpctl list || true
-  coredumpctl debug \
-    --debugger-arguments="-batch -ex 'set pagination off' -ex 'bt full' -ex quit" || true
-}
-
-trap dump_cores ERR
+# dump_cores() {
+#   shopt -s nullglob
+#
+#   cores=("$CORE_DIR"/core.*)
+#
+#   if [ ${#cores[@]} -eq 0 ]; then
+#     echo "No core dumps found in $CORE_DIR"
+#     exit 0
+#   fi
+#
+#   echo "Found ${#cores[@]} core dumps"
+#
+#   for core in "${cores[@]}"; do
+#     echo
+#     echo "=============================="
+#     echo "CORE: $core"
+#     echo "=============================="
+#
+#     gdb -batch \
+#       -c "$core" \
+#       -ex "set pagination off" \
+#       -ex "thread apply all bt full" \
+#       -ex "quit" \
+#     || {
+#       echo "GDB failed for $core"
+#     }
+#
+#   done
+# }
+#
+# trap dump_cores ERR
 
 make \
   QTILE_CI_PYTHON="${QTILE_CI_PYTHON}" \

@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
 
-# We use NSS wrapper to map the runtime UID/GID to a valid user entry
-# This is needed to start D-Bus
-uid_now="$(id -u)"
-gid_now="$(id -g)"
-export HOME="${HOME:-/workspace}"
-export NSS_WRAPPER_PASSWD=/tmp/passwd
-export NSS_WRAPPER_GROUP=/tmp/group
-cat > "$NSS_WRAPPER_PASSWD" <<EOF
-user:x:${uid_now}:${gid_now}:user:${HOME}:/bin/bash
-EOF
-cat > "$NSS_WRAPPER_GROUP" <<EOF
-user:x:${gid_now}:
-EOF
-export LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}/usr/lib64/libnss_wrapper.so.0"
+# if [ "$EUID" -eq 0 ]; then
+#     echo '/tmp/core.%h.%e.%p.%t' > /proc/sys/kernel/core_pattern
+#     groupadd -g $USER_GID $USERNAME
+#     useradd -m -u $USER_UID -g $USERNAME -s /bin/bash $USERNAME
+#     exec setpriv --reuid=$USERNAME --regid=$USERNAME --clear-groups "$0" "$@"
+# fi
 
 cd /workspace
 
@@ -23,6 +15,6 @@ cd /workspace
 eval $(dbus-launch --sh-syntax)
 
 # Check for interactive flag
-if [[ "$1" == "-i" ]]; then
+if [[ "${1:-}" == "-i" ]]; then
     exec bash
 fi

@@ -42,6 +42,8 @@ jobs:
             - name: Load Docker image
               run: docker load < qtile-ci.tar.gz
 
+                  # --privileged \
+                  # -e USERNAME=`whoami` -e USER_UID=`id -u` -e USER_GID=`id -g` \
             - name: Run tests in container
               run: |
                 docker run --rm \
@@ -58,8 +60,7 @@ jobs:
                   -e COVERALLS_FLAG_NAME=${{ format('{0}-{1}', matrix.python-version, matrix.backend) }} \
                   -e COVERALLS_PARALLEL=true \
                   -e COVERALLS_SERVICE_JOB_ID=${{ github.run_id }} \
-                  qtile-ci:local \
-                  ./entrypoint.sh
+                  qtile-ci:local
 
     cleanup:
         name: Cleanup artifacts

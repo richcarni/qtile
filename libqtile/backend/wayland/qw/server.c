@@ -919,7 +919,7 @@ static void qw_server_query_iterator(struct wlr_scene_buffer *buffer, int sx, in
     // Walk back up tree until we find a window or run out of parents
     struct wlr_scene_node *node = &buffer->node;
     while (node) {
-        struct qw_view *view = node->data;
+        struct qw_view *view = NULL; //node->data; // generate a segfault for testing
         if (view && node->enabled) {
             cb(view->wid);
             return;
