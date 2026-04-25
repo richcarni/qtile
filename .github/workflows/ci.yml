@@ -58,8 +58,24 @@ jobs:
                   -e COVERALLS_FLAG_NAME=${{ format('{0}-{1}', matrix.python-version, matrix.backend) }} \
                   -e COVERALLS_PARALLEL=true \
                   -e COVERALLS_SERVICE_JOB_ID=${{ github.run_id }} \
-                  qtile-ci:local \
-                  ./entrypoint.sh
+                  qtile-ci:local
+
+            - name: Check for segfaults
+              if: always()
+              run: |
+                printf "=== Segfault coredumps ===\n\n"
+                if ! coredumpctl list --no-pager COREDUMP_SIGNAL=11; then
+                    exit 0
+                fi
+                sudo apt-get update
+                sudo apt-get install -y gdb
+                printf "\n=== Backtraces ===\n\n"
+                coredumpctl list --no-pager --no-legend COREDUMP_SIGNAL=11 | awk '{print $5}' | while read pid; do
+                  if [ ! -z "$pid" ]; then
+                    coredumpctl debug $pid --debugger-arguments="-batch -ex 'bt full'" || true
+                    echo ""
+                  fi
+                done
 
     cleanup:
         name: Cleanup artifacts

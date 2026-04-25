@@ -23,6 +23,6 @@ cd /workspace
 eval $(dbus-launch --sh-syntax)
 
 # Check for interactive flag
-if [[ "$1" == "-i" ]]; then
+if [[ "${1:-}" == "-i" ]]; then
     exec bash
 fi
