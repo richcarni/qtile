@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf "=== Segfault coredumps ===\n\n"
+if ! coredumpctl list --no-pager COREDUMP_SIGNAL=11; then
+  exit 0
+fi
+
+printf "\n=== Backtraces ===\n\n"
+coredumpctl list --no-pager --no-legend COREDUMP_SIGNAL=11 | awk '{print $5}' | while read pid; do
+  if [ ! -z "$pid" ]; then
+    coredumpctl debug $pid --debugger-arguments="-batch -ex 'bt full'" || true
+    echo ""
+  fi
+done

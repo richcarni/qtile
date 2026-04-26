@@ -5,6 +5,7 @@ RUN dnf install -y \
     cairo-gobject-devel \
     dbus-x11 \
     gcc git make\
+    gdb \
     gobject-introspection \
     gtk3 \
     ImageMagick \

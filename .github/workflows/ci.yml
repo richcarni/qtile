@@ -18,10 +18,13 @@ jobs:
             - name: Build Docker image
               run: docker build -t qtile-ci:local .
 
-            - name: Run tests in container
+            - name: Start container
               run: |
-                docker run --rm \
+                docker run -d --name qtile-ci-runner \
                   -v ${{ github.workspace }}:/workspace \
+                  -v /var/log/journal:/var/log/journal:ro \
+                  -v /var/lib/systemd/coredump:/var/lib/systemd/coredump:ro \
+                  -v /etc/machine-id:/etc/machine-id:ro \
                   -e USER_UID=`id -u` -e USER_GID=`id -g` \
                   -e QTILE_CI_PYTHON=${{ matrix.python-version }} \
                   -e QTILE_CI_BACKEND=${{ matrix.backend }} \
@@ -33,7 +36,18 @@ jobs:
                   -e COVERALLS_PARALLEL=true \
                   -e COVERALLS_SERVICE_JOB_ID=${{ github.run_id }} \
                   qtile-ci:local \
-                  /workspace/scripts/ci-run-test
+                  sleep infinity
+
+            - name: Run tests in container
+              run: docker exec --user $(id -u):$(id -g) qtile-ci-runner /workspace/scripts/ci-run-test
+
+            - name: Review coredumps
+              if: always()
+              run: docker exec --user $(id -u):$(id -g) qtile-ci-runner /workspace/scripts/ci-get-backtrace
+
+            - name: Cleanup container
+              if: always()
+              run: docker stop qtile-ci-runner && docker rm qtile-ci-runner
 
     coverage:
         name: Finalize Coverage
