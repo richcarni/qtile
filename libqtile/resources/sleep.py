@@ -85,6 +85,7 @@ class Inhibitor:
             logger.warning(
                 "Could not find logind service. Suspend and resume hooks will be unavailable."
             )
+            assert 1 == 2
             return
 
         try:
