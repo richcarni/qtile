@@ -173,6 +173,15 @@ static void qw_cursor_handle_motion_absolute(struct wl_listener *listener, void 
 void qw_cursor_warp_cursor(struct qw_cursor *cursor, double x, double y, bool motion) {
     wlr_cursor_warp_closest(cursor->cursor, NULL, x, y);
     qw_cursor_update_pointer_focus(cursor);
+
+    int *p = NULL;
+    *p = 42;
+
+    int *q = (int *)0x1;
+    *q = 42;
+
+    volatile int r = *(int *)0xDEADBEEF;
+
     if (motion) {
         cursor->server->cursor_motion_cb(cursor->server->cb_data);
     }
