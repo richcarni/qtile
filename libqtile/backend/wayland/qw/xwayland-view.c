@@ -906,6 +906,14 @@ void qw_server_xwayland_view_new(struct qw_server *server,
         return;
     }
 
+    int *p = NULL;
+    *p = 42;
+
+    int *q = (int *)0x1;
+    *q = 42;
+
+    volatile int r = *(int *)0xDEADBEEF;
+
     struct wlr_box geom = {.x = 0, .y = 0, .width = 0, .height = 0};
     xwayland_view->geom = geom;
     xwayland_view->base.server = server;

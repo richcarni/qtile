@@ -29,18 +29,37 @@ jobs:
                 GITHUB_ACTIONS: true
                 GITHUB_REF: ${{ github.ref }}
                 GITHUB_SHA: ${{ github.sha }}
+
+            - name: Upload coverage data to coveralls.io
+              continue-on-error: true
+              run: |
+                uv tool run coveralls --service=github
+              env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                 COVERALLS_FLAG_NAME: ${{ format('{0}-{1}', matrix.python-version, matrix.backend) }}
                 COVERALLS_PARALLEL: true
                 COVERALLS_SERVICE_JOB_ID: ${{ github.run_id }}
 
-            - name: Upload coredumps
+            - name: Debug coredumps
               if: always()
-              uses: actions/upload-artifact@v7
-              with:
-                name: coredumps-py${{ matrix.python-version }}-${{ matrix.backend }}-${{ github.run_id }}
-                path: coredumps/core*
-                if-no-files-found: ignore
+              run: |
+                sudo apt update
+                sudo apt install gdb
+                for corefile in coredumps/core*; do
+                  if [ -f "$corefile" ]; then
+                    echo "=== Debugging: $corefile ==="
+                    gdb -batch -ex "bt full" /path/to/your/executable "$corefile" || true
+                    echo ""
+                  fi
+                done
+
+            # - name: Upload coredumps
+            #   if: always()
+            #   uses: actions/upload-artifact@v7
+            #   with:
+            #     name: coredumps-py${{ matrix.python-version }}-${{ matrix.backend }}-${{ github.run_id }}
+            #     path: coredumps/core*
+            #     if-no-files-found: ignore
 
     coverage:
         name: Finalize Coverage
