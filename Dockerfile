@@ -24,6 +24,7 @@ RUN dnf install -y \
     xorg-x11-server-Xwayland \
     xterm \
     zstd \
+    procps-ng \
     && dnf clean all
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh

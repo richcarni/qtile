@@ -1,8 +1,22 @@
+import subprocess
 import pytest
 
 import libqtile
 from libqtile.backend.base import drawer
 from test.helpers import BareConfig, TestManager
+
+# @pytest.hookimpl(hookwrapper=True)
+# def pytest_runtest_teardown(item, nextitem):
+#     # 1. Let the actual test teardown happen first
+#     yield 
+#
+#     # 2. Now run our memory check
+#     print(f"\n--- System Memory after: {item.name} ---")
+#     try:
+#         result = subprocess.run(['free', '-h'], capture_output=True, text=True)
+#         print(result.stdout)
+#     except Exception as e:
+#         print(f"Failed to check memory: {e}")
 
 
 def pytest_addoption(parser):

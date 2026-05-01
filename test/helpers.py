@@ -37,6 +37,50 @@ LOG_PIPE_BUFFER_SIZE = 128 * 1024
 max_sleep = 5.0
 sleep_time = 0.1
 
+class _PipeWriter:
+    def __init__(self, pipe):
+        self.pipe = pipe
+
+    def write(self, s):
+        if s and s != '\n':
+            self.pipe.send_bytes(s.encode())
+
+    def flush(self):
+        pass
+
+def _run_qtile(backend, log_level, config_class, sockfile, no_spawn, state, rpipe, wpipe, log_rpipe, log_wpipe, config_kwargs=None):
+    try:
+        rpipe.close()
+        log_rpipe.close()
+        os.environ.pop("DISPLAY", None)
+        os.environ.pop("WAYLAND_DISPLAY", None)
+        init_log(log_level)
+        pangocffi.init_fontconfig()
+        kore = backend.create()
+        os.environ.update(backend.env)
+        from libqtile.core.lifecycle import lifecycle
+
+        formatter = logging.Formatter("%(levelname)s - %(message)s")
+        # handler = logging.StreamHandler(os.fdopen(log_wpipe.fileno(), "w", closefd=False))
+        handler = logging.StreamHandler(_PipeWriter(log_wpipe))
+        handler.setFormatter(formatter)
+        handler.terminator = ''
+        logger.addHandler(handler)
+
+        Qtile(
+            kore,
+            config_class(**(config_kwargs or {})),
+            socket_path=sockfile,
+            no_spawn=no_spawn,
+            state=state,
+        ).loop()
+        lifecycle._atexit()
+    except Exception:
+        wpipe.send(traceback.format_exc())
+    finally:
+        wpipe.close()
+        log_wpipe.close()
+
 
 class Retry:
     def __init__(
@@ -154,6 +198,7 @@ class TestManager:
         self.c = None
         self.testwindows = []
         self.logspipe = None
+        self._log_rpipe = None
 
     def __enter__(self):
         """Set up resources"""
@@ -163,66 +208,67 @@ class TestManager:
         self.sockfile = self._sockfile.name
         return self
 
+
     def __exit__(self, _exc_type, _exc_value, _exc_tb):
-        """Clean up resources"""
         self.terminate()
         self._sockfile.close()
-        if self.logspipe is not None:
-            os.close(self.logspipe)
+        if self._log_rpipe is not None:
+            self._log_rpipe.close()
+
+    # def __exit__(self, _exc_type, _exc_value, _exc_tb):
+    #     """Clean up resources"""
+    #     self.terminate()
+    #     self._sockfile.close()
+    #     if self.logspipe is not None:
+    #         os.close(self.logspipe)
 
     def get_log_buffer(self):
-        """Returns any logs that have been written to qtile's log buffer up to this point."""
-        # default pipe size on linux is 64k. we probably won't write
-        # 64k of logs, but in the event that we do, qtile will hang in
-        # write(). but thanks to e1d2dab16903 ("switch semantics of sigusr2
-        # to stack dumping") hopefully we will see it's hung in a log write and
-        # look at this. if we do write 64k of logs, we can do some F_SETPIPE_SZ
-        # fiddling with the buffer size to grow it to whatever github allows.
-        return os.read(self.logspipe, 64 * 1024).decode("utf-8")
+        chunks = []
+        while self._log_rpipe.poll(0):
+            chunks.append(self._log_rpipe.recv_bytes())
+        return b"".join(chunks).decode("utf-8")
+    # def get_log_buffer(self):
+    #     """Returns any logs that have been written to qtile's log buffer up to this point."""
+    #     # default pipe size on linux is 64k. we probably won't write
+    #     # 64k of logs, but in the event that we do, qtile will hang in
+    #     # write(). but thanks to e1d2dab16903 ("switch semantics of sigusr2
+    #     # to stack dumping") hopefully we will see it's hung in a log write and
+    #     # look at this. if we do write 64k of logs, we can do some F_SETPIPE_SZ
+    #     # fiddling with the buffer size to grow it to whatever github allows.
+    #     return os.read(self.logspipe, 64 * 1024).decode("utf-8")
 
-    def start(self, config_class, no_spawn=False, state=None):
-        multiprocessing.set_start_method("fork", force=True)
-        readlogs, writelogs = os.pipe()
-        rpipe, wpipe = multiprocessing.Pipe()
+    def start(self, config_class, no_spawn=False, state=None, config_kwargs=None):
+        rpipe, wpipe = multiprocessing.Pipe(duplex=False)
+        log_rpipe, log_wpipe = multiprocessing.Pipe(duplex=False)
 
-        def run_qtile():
-            try:
-                rpipe.close()
-                os.environ.pop("DISPLAY", None)
-                os.environ.pop("WAYLAND_DISPLAY", None)
-                init_log(self.log_level)
-                # Initialise fontconfig before starting qtile to prevent races
-                pangocffi.init_fontconfig()
-                kore = self.backend.create()
-                os.environ.update(self.backend.env)
-                from libqtile.core.lifecycle import lifecycle
+        self.backend.manager = None
 
-                os.close(readlogs)
-                formatter = logging.Formatter("%(levelname)s - %(message)s")
-                handler = logging.StreamHandler(os.fdopen(writelogs, "w"))
-                handler.setFormatter(formatter)
-                logger.addHandler(handler)
-
-                Qtile(
-                    kore,
-                    config_class(),
-                    socket_path=self.sockfile,
-                    no_spawn=no_spawn,
-                    state=state,
-                ).loop()
-                lifecycle._atexit()
-            except Exception:
-                wpipe.send(traceback.format_exc())
-            finally:
-                wpipe.close()
-
-        self.proc = multiprocessing.Process(target=run_qtile)
+        ctx = multiprocessing.get_context("forkserver")
+        self.proc = ctx.Process(
+            target=_run_qtile,
+            args=(
+                self.backend,
+                self.log_level,
+                config_class,
+                self.sockfile,
+                no_spawn,
+                state,
+                rpipe,
+                wpipe,
+                log_rpipe,
+                log_wpipe,
+                config_kwargs,
+            ),
+        )
         self.proc.start()
-        wpipe.close()
-        os.close(writelogs)
-        self.logspipe = readlogs
+        print(f"Child PID: {self.proc.pid}", flush=True)
+        self.backend.manager = self
 
-        # First, wait for socket to appear
+        wpipe.close()
+        log_wpipe.close()
+        self._log_rpipe = log_rpipe  # keep connection object alive
+        self.logspipe = log_rpipe    # see note below
+
         try:
             if can_connect_qtile(self.sockfile, ok=lambda: not rpipe.poll()):
                 ipc_client = ipc.Client(self.sockfile)
@@ -233,9 +279,68 @@ class TestManager:
             if rpipe.poll(0.1):
                 error = rpipe.recv()
                 raise AssertionError(f"Error launching qtile, traceback:\n{error}")
+            print(f"Child alive: {self.proc.is_alive()}", flush=True)
+            print(f"Child exitcode: {self.proc.exitcode}", flush=True)
             raise AssertionError("Error launching qtile")
         finally:
             rpipe.close()
+    #
+    # def start(self, config_class, no_spawn=False, state=None):
+    #     multiprocessing.set_start_method("fork", force=True)
+    #     readlogs, writelogs = os.pipe()
+    #     rpipe, wpipe = multiprocessing.Pipe()
+    #
+    #     def run_qtile():
+    #         try:
+    #             rpipe.close()
+    #             os.environ.pop("DISPLAY", None)
+    #             os.environ.pop("WAYLAND_DISPLAY", None)
+    #             init_log(self.log_level)
+    #             # Initialise fontconfig before starting qtile to prevent races
+    #             pangocffi.init_fontconfig()
+    #             kore = self.backend.create()
+    #             os.environ.update(self.backend.env)
+    #             from libqtile.core.lifecycle import lifecycle
+    #
+    #             os.close(readlogs)
+    #             formatter = logging.Formatter("%(levelname)s - %(message)s")
+    #             handler = logging.StreamHandler(os.fdopen(writelogs, "w"))
+    #             handler.setFormatter(formatter)
+    #             logger.addHandler(handler)
+    #
+    #             Qtile(
+    #                 kore,
+    #                 config_class(),
+    #                 socket_path=self.sockfile,
+    #                 no_spawn=no_spawn,
+    #                 state=state,
+    #             ).loop()
+    #             lifecycle._atexit()
+    #         except Exception:
+    #             wpipe.send(traceback.format_exc())
+    #         finally:
+    #             wpipe.close()
+    #
+    #     self.proc = multiprocessing.Process(target=run_qtile)
+    #     self.proc.start()
+    #     wpipe.close()
+    #     os.close(writelogs)
+    #     self.logspipe = readlogs
+    #
+    #     # First, wait for socket to appear
+    #     try:
+    #         if can_connect_qtile(self.sockfile, ok=lambda: not rpipe.poll()):
+    #             ipc_client = ipc.Client(self.sockfile)
+    #             ipc_command = command.interface.IPCCommandInterface(ipc_client)
+    #             self.c = command.client.InteractiveCommandClient(ipc_command)
+    #             self.backend.configure(self)
+    #             return
+    #         if rpipe.poll(0.1):
+    #             error = rpipe.recv()
+    #             raise AssertionError(f"Error launching qtile, traceback:\n{error}")
+    #         raise AssertionError("Error launching qtile")
+    #     finally:
+    #         rpipe.close()
 
     def create_manager(self, config_class):
         """Create a Qtile manager instance in this thread
