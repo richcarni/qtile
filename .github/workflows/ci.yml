@@ -20,9 +20,16 @@ jobs:
                 backend: ['x11', 'wayland']
         steps:
             - uses: actions/checkout@v6
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v4
             - name: Build Docker image
-              run: |
-                docker build -t qtile-ci .
+              uses: docker/build-push-action@v7
+              with:
+                context: .
+                tags: qtile-ci:latest
+                load: true
+                cache-from: type=gha
+                cache-to: type=gha,mode=max
             - name: Run tests in container
               run: |
                 mkdir coredumps
