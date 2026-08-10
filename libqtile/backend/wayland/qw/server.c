@@ -1238,6 +1238,7 @@ void qw_server_test_destroy_output(struct qw_server *server, int index) {
     wl_list_for_each(output, &server->outputs, link) {
         if (i == index) {
             wlr_output_destroy(output->wlr_output);
+            wlr_log(WLR_ERROR, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             return;
         }
         i++;

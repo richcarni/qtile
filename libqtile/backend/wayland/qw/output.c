@@ -61,6 +61,8 @@ static void qw_output_handle_destroy(struct wl_listener *listener, void *data) {
     output->fullscreen_background = NULL;
 
     free(output);
+    fprintf(stderr, "output=%p\n", (void *)output);
+    volatile void *x = output->scene;
 }
 
 static void qw_output_handle_request_state(struct wl_listener *listener, void *data) {
