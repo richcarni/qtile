@@ -45,6 +45,13 @@ check: deps ## Run the test suite on the latest python
 		uv tool run coveralls --service=github || true; \
 	fi
 
+.PHONY: asan-check
+asan-check: deps ## Run the test suite on the latest python
+	uv run ./libqtile/backend/wayland/cffi/build.py --debug --asan
+	LD_PRELOAD=$$(gcc -print-file-name=libasan.so.8) \
+	ASAN_OPTIONS=$${ASAN_OPTIONS:-detect_leaks=1:abort_on_error=0:symbolize=1} \
+	uv run $(UV_PYTHON_ARG) python3 -m pytest test/backend/wayland $(PYTEST_BACKEND_ARG) 
+
 TTY := $(shell [ -t 0 ] && echo "-t")
 DOCKER_RUN = docker run --rm --init -i $(TTY) \
 	-v $(PWD):/workspace:z \
@@ -57,6 +64,10 @@ DOCKER_RUN = docker run --rm --init -i $(TTY) \
 .PHONY: ci-check
 ci-check: ## Run the test suite in the docker ci container
 	$(DOCKER_RUN) make check
+
+.PHONY: asan-ci-check
+asan-ci-check: ## Run the test suite in the docker ci container
+	$(DOCKER_RUN) make asan-check
 
 .PHONY: ci-bash
 ci-bash: ## Run the test suite in the docker ci container

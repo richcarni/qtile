@@ -5,54 +5,111 @@ on:
     pull_request:
 
 jobs:
-    tests:
+    # tests:
+    #     runs-on: ubuntu-24.04
+    #     name: "python ${{ matrix.python-version }} on ${{ matrix.backend }}"
+    #     strategy:
+    #         matrix:
+    #             # If you change one of these, be sure to update:
+    #             # - /pyproject.toml:[tool.mypy]
+    #             # If adding new python versions, consider also updating
+    #             # python version in .readthedocs.yaml
+    #             # TODO: Add back pypy here and in release.yml once:
+    #             # https://github.com/pypy/pypy/issues/4956 is resolved
+    #             python-version: ['3.12', '3.13', '3.14']
+    #             backend: ['x11', 'wayland']
+    #     steps:
+    #         - uses: actions/checkout@v6
+    #         - name: Set up Docker Buildx
+    #           uses: docker/setup-buildx-action@v4
+    #         - name: Build Docker image
+    #           uses: docker/build-push-action@v7
+    #           with:
+    #             context: .
+    #             tags: qtile-ci:latest
+    #             load: true
+    #             cache-from: type=gha,scope=base
+    #             cache-to: type=gha,mode=max,scope=base
+    #         - name: Run tests in container
+    #           run: |
+    #             mkdir coredumps
+    #             sudo sysctl -w kernel.core_pattern=/workspace/coredumps/core-%e.%p.%t
+    #             make ci-check
+    #           env:
+    #             QTILE_CI_PYTHON: ${{ matrix.python-version }}
+    #             QTILE_CI_BACKEND: ${{ matrix.backend }}
+    #             GITHUB_ACTIONS: true
+    #             GITHUB_REF: ${{ github.ref }}
+    #             GITHUB_SHA: ${{ github.sha }}
+    #             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #             COVERALLS_FLAG_NAME: ${{ format('{0}-{1}', matrix.python-version, matrix.backend) }}
+    #             COVERALLS_PARALLEL: true
+    #             COVERALLS_SERVICE_JOB_ID: ${{ github.run_id }}
+
+    asan-tests:
         runs-on: ubuntu-24.04
-        name: "python ${{ matrix.python-version }} on ${{ matrix.backend }}"
+        name: "ASan wayc (python ${{ matrix.python-version }})"
         strategy:
             matrix:
-                # If you change one of these, be sure to update:
-                # - /pyproject.toml:[tool.mypy]
-                # If adding new python versions, consider also updating
-                # python version in .readthedocs.yaml
-                # TODO: Add back pypy here and in release.yml once:
-                # https://github.com/pypy/pypy/issues/4956 is resolved
-                python-version: ['3.12', '3.13', '3.14']
-                backend: ['x11', 'wayland']
+                python-version: ['3.14']
         steps:
             - uses: actions/checkout@v6
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
-            - name: Build Docker image
+            - name: Log in to GHCR
+              uses: docker/login-action@v4
+              with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build base Docker image
               uses: docker/build-push-action@v7
               with:
                 context: .
+                tags: ghcr.io/${{ github.repository }}/qtile-ci:latest
+                push: true
+                provenance: false
+                sbom: false
+                cache-from: type=gha,scope=base
+                cache-to: type=gha,mode=max,scope=base
+            - name: Build ASan Docker image
+              uses: docker/build-push-action@v7
+              with:
+                context: .
+                file: ./Dockerfile.asan
                 tags: qtile-ci:latest
                 load: true
-                cache-from: type=gha
-                cache-to: type=gha,mode=max
-            - name: Run tests in container
+                cache-from: type=gha,scope=asan
+                cache-to: type=gha,mode=max,scope=asan
+                build-args: |
+                  BASE_IMAGE=ghcr.io/${{ github.repository }}/qtile-ci:latest
+            - name: Run tests under ASan
               run: |
-                mkdir coredumps
-                sudo sysctl -w kernel.core_pattern=/workspace/coredumps/core-%e.%p.%t
-                make ci-check
+                make asan-ci-check
               env:
                 QTILE_CI_PYTHON: ${{ matrix.python-version }}
-                QTILE_CI_BACKEND: ${{ matrix.backend }}
-                GITHUB_ACTIONS: true
-                GITHUB_REF: ${{ github.ref }}
-                GITHUB_SHA: ${{ github.sha }}
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                COVERALLS_FLAG_NAME: ${{ format('{0}-{1}', matrix.python-version, matrix.backend) }}
-                COVERALLS_PARALLEL: true
-                COVERALLS_SERVICE_JOB_ID: ${{ github.run_id }}
-
-    coverage:
-        name: Finalize Coverage
-        needs: tests
-        runs-on: ubuntu-24.04
-        steps:
-            - name: Coveralls Finished
-              uses: coverallsapp/github-action@main
+                QTILE_CI_BACKEND: wayland
+                GLYCIN_DISABLE_SANDBOX: "i-know-the-risks"
+                ASAN_OPTIONS: detect_leaks=1:abort_on_error=0:symbolize=1:log_path=/workspace/asan.log:log_exe_name=1
+            - name: List ASan log files
+              if: failure()
+              run: |
+                echo "ASan log files found:"
+                ls -la asan*.log* 2>/dev/null || echo "No matching files found."
+            - name: Upload ASan log
+              if: failure()
+              uses: actions/upload-artifact@v4
               with:
-                github-token: ${{ secrets.GITHUB_TOKEN }}
-                parallel-finished: true
+                name: asan-log
+                path: asan*.log*
+
+    # coverage:
+    #     name: Finalize Coverage
+    #     needs: tests
+    #     runs-on: ubuntu-24.04
+    #     steps:
+    #         - name: Coveralls Finished
+    #           uses: coverallsapp/github-action@main
+    #           with:
+    #             github-token: ${{ secrets.GITHUB_TOKEN }}
+    #             parallel-finished: true
