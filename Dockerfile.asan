@@ -1,5 +1,4 @@
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+FROM qtile-ci
 
 RUN dnf -y install 'dnf-command(copr)' \
        && dnf -y copr enable richcarni/glycin-2.2 \
