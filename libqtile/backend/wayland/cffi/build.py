@@ -430,7 +430,7 @@ def build_c_objects(config: BuildConfig, *, debug: bool = False, asan: bool = Fa
         cmd = build_ext(dist)
         cmd.setup_shlib_compiler()
 
-        preargs = ["-g3", "-Og"] if (debug or asan) else ["-O2"]
+        preargs = ["-g3", "-O0"] if (debug or asan) else ["-O2"]
         preargs += ["-fPIC", "-Wall", "-Wextra"]
         if asan:
             preargs += ["-fsanitize=address,leak,undefined", "-fno-omit-frame-pointer"]
@@ -480,7 +480,7 @@ def compile_ffi(
     extra_compile_args: list[str] = []
     extra_link_args: list[str] = []
     if debug or asan:
-        extra_compile_args += ["-g3", "-Og"]
+        extra_compile_args += ["-g3", "-O0"]
     if asan:
         extra_compile_args += ["-fsanitize=address,leak,undefined", "-fno-omit-frame-pointer"]
         extra_link_args += ["-fsanitize=address,undefined"]

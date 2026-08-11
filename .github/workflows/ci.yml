@@ -70,10 +70,21 @@ jobs:
                 ASAN_OPTIONS: detect_leaks=1:abort_on_error=0:symbolize=1:log_path=/workspace/asan.log:log_exe_name=1
                 # LSAN_OPTIONS: exitcode=0
             - name: List ASan log files
-              if: failure()
+              if: always()
               run: |
-                echo "ASan log files found:"
-                ls -la asan*.log* 2>/dev/null || echo "No matching files found."
+                asan_failed=0
+                echo "=== AddressSanitizer errors ==="
+                if grep -l "ERROR: AddressSanitizer" asan.log.* 2>/dev/null; then
+                  asan_failed=1
+                else
+                  echo "  none"
+                fi
+                echo ""
+                echo "=== LeakSanitizer errors ==="
+                grep -l "ERROR: LeakSanitizer" asan.log.* 2>/dev/null || echo "  none"
+                exit "$asan_failed"
+                # echo "ASan log files found:"
+                # ls -la asan*.log* 2>/dev/null || echo "No matching files found."
             - name: Upload ASan log
               if: failure()
               uses: actions/upload-artifact@v4

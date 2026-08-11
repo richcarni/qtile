@@ -170,4 +170,3 @@ def test_layer_surface_commit_after_output_destroy(wmanager, test_client):
     # not crash while handling the post-destroy commit.
     test_client.assert_ok("status")
     assert wmanager.c.core.eval("1 + 1") == "2"
-    assert 1 == 2

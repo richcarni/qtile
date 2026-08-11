@@ -57,9 +57,28 @@ static void qw_output_handle_destroy(struct wl_listener *listener, void *data) {
 
     /* wlroots automatically destroys wlr_scene_output and attached scene nodes
      * when wlr_output is destroyed. Simply clear the pointer. */
-    output->scene = NULL;
+    // output->scene = NULL;
     output->fullscreen_background = NULL;
 
+    // free(output);
+    // fprintf(stderr, "output=%p\n", (void *)output);
+    // volatile void *x = output->scene;
+    //
+    // char *p = malloc(8);
+    // p[100] = 'x';  // guaranteed heap-buffer-overflow, should always trip ASan
+
+    // free(output);
+    // fprintf(stderr, "output=%p\n", (void *)output);
+    // void *val = *(volatile void **)&output->scene;
+    // fprintf(stderr, "scene=%p\n", val);
+    // char *p = malloc(8);
+    // p[100] = 'x';
+
+    // free(output);
+    // fprintf(stderr, "output=%p\n", (void *)output);
+    // volatile void *x = output->scene;
+    // fprintf(stderr, "scene=%p\n", (void *)x);
+    //
     free(output);
     fprintf(stderr, "output=%p\n", (void *)output);
     volatile void *x = output->scene;
