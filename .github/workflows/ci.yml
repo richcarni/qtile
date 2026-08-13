@@ -59,28 +59,29 @@ jobs:
               env:
                 QTILE_CI_PYTHON: ${{ matrix.python-version }}
                 QTILE_CI_BACKEND: wayland
-                ASAN_OPTIONS: log_path=/workspace/asan.log:log_exe_name=1
-                LSAN_OPTIONS: exitcode=0 # Don't fail due to leaks (for now)
+                ASAN_OPTIONS: log_path=/workspace/asan.log
             - name: List ASan log files
               if: always()
               run: |
                 asan_failed=0
                 echo "=== AddressSanitizer errors ==="
-                if grep -l "ERROR: AddressSanitizer" asan.log.* 2>/dev/null; then
+                if ls -l asan.log.* 2>/dev/null; then
                   asan_failed=1
                 else
                   echo "  none"
                 fi
                 echo ""
                 echo "=== LeakSanitizer errors ==="
-                grep -l "ERROR: LeakSanitizer" asan.log.* 2>/dev/null || echo "  none"
+                ls -l lsan.log.* 2>/dev/null || echo "  none"
                 exit "$asan_failed"
             - name: Upload ASan log files
               if: always()
               uses: actions/upload-artifact@v4
               with:
                 name: asan-log
-                path: asan*.log*
+                path: |
+                  asan.log*
+                  lsan.log*
                 if-no-files-found: warn
 
     coverage:
