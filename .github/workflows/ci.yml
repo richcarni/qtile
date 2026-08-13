@@ -60,10 +60,11 @@ jobs:
                 QTILE_CI_PYTHON: ${{ matrix.python-version }}
                 QTILE_CI_BACKEND: wayland
                 ASAN_OPTIONS: log_path=/workspace/asan.log
-            - name: List ASan log files
+            - name: List and filter ASan log files
               if: always()
               run: |
                 asan_failed=0
+                lsan_failed=0
                 echo "=== AddressSanitizer errors ==="
                 if ls -l asan.log.* 2>/dev/null; then
                   asan_failed=1
@@ -73,7 +74,14 @@ jobs:
                 echo ""
                 echo "=== LeakSanitizer errors ==="
                 ls -l lsan.log.* 2>/dev/null || echo "  none"
-                exit "$asan_failed"
+                echo ""
+                echo "=== Leaks referencing libwayc ==="
+                if grep -l -f <(nm ./libqtile/backend/wayland/_ffi.cpython-314-x86_64-linux-gnu.so | grep ' [Tt] ' | awk '{print $3}') lsan.log.*; then
+                  lsan_failed=1
+                else
+                  echo "  none"
+                fi
+                exit $(($asan_failed || $lsan_failed))
             - name: Upload ASan log files
               if: always()
               uses: actions/upload-artifact@v4
