@@ -72,18 +72,23 @@ jobs:
                   echo "  none"
                 fi
                 echo ""
-                echo "=== Leaks referencing libwayc ==="
-                PATTERN="libqtile/backend/wayland/qw"
+                echo "=== Leaks referencing libwayc and wayland clients ==="
+                PATTERN="libqtile/backend/wayland/qw|test/wayland_clients/bin"
                 matches=$(grep -lE "$PATTERN" lsan.log.* 2>/dev/null) || true
                 if [ -n "$matches" ]; then
-                  echo "$matches" | sed "s/$/  [matched path: $PATTERN]/"
+                  echo "$matches"
                   lsan_failed=1
                 else
                   echo "  none"
                 fi
                 echo ""
-                echo "=== All LeakSanitizer errors ==="
-                ls -1 lsan.log.* 2>/dev/null || echo "  none"
+                echo "=== Other LeakSanitizer errors ==="
+                other_matches=$(grep -LE "$PATTERN" lsan.log.* 2>/dev/null) || true
+                if [ -n "$other_matches" ]; then
+                  echo "$other_matches"
+                else
+                  echo "  none"
+                fi
                 exit $(($asan_failed || $lsan_failed))
             - name: Upload ASan log files
               if: always()
