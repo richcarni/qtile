@@ -448,13 +448,14 @@ class Qtile(CommandObject):
     def _process_screens(self, reloading: bool = False) -> None:
         current_groups = [s.group for s in self.screens]
         output_info = self.get_output_info()
+        logger.error([o.port for o in output_info])
         config_screens = self.get_screens_from_config(output_info)
         new_screens: list[Screen] = []
 
         for i, info in enumerate(output_info):
             if i < len(config_screens):
                 scr = config_screens[i]
-                logger.debug(f"using config at index {i} for output {info.port}")
+                logger.error(f"using config at index {i} for output {info.port}")
             else:
                 # user didn't supply enough screens, create one
                 scr = Screen()
@@ -476,6 +477,8 @@ class Qtile(CommandObject):
 
             # If the screen has changed position and/or size, or is a new screen then make sure that any gaps/bars
             # are reconfigured
+            logger.error((info.rect.x, info.rect.y, info.rect.width, info.rect.height))
+            logger.error((scr.x, scr.y, scr.width, scr.height))
             reconfigure_gaps = (
                 (info.rect.x, info.rect.y, info.rect.width, info.rect.height)
                 != (scr.x, scr.y, scr.width, scr.height)
@@ -507,8 +510,10 @@ class Qtile(CommandObject):
             new_screens.append(Screen())
 
         for screen in self.screens:
-            if screen not in new_screens:
+            if not any(screen is ns for ns in new_screens):
                 screen.finalize_gaps()
+            # if screen not in new_screens:
+            #     screen.finalize_gaps()
 
         self.screens = new_screens
 
@@ -980,12 +985,18 @@ class Qtile(CommandObject):
             self.core.warp_pointer(scr.x + scr.dwidth // 2, scr.y + scr.dheight // 2)
 
     def focus_screen(self, n: int, warp: bool = True) -> None:
+        import traceback
+        logger.error("focus_screen called from:\n" + "".join(traceback.format_stack()))
         """Have Qtile move to screen and put focus there"""
         if n >= len(self.screens):
             return
         old = self.current_screen
+        logger.error(f"old screen: {old}")
+        logger.error(self.screens)
         self.current_screen = self.screens[n]
+        logger.error(f"current screen: {self.current_screen}")
         if old != self.current_screen:
+            logger.error("here2")
             hook.fire("current_screen_change")
             hook.fire("setgroup")
             old.group.layout_all()

@@ -574,7 +574,9 @@ class Core(base.Core):
             screen = self.qtile.find_screen(
                 int(self.qw_cursor.cursor.x), int(self.qw_cursor.cursor.y)
             )
+            logger.error("here")
             if screen:
+                logger.error(f"screen.index: {screen.index}")
                 self._grab_click_on_current_window()
                 self.qtile.focus_screen(screen.index, warp=False)
 
@@ -585,6 +587,7 @@ class Core(base.Core):
         view = self.qw_cursor.view
 
         if view == ffi.NULL:
+            self.qtile.hovered_window = None
             return
 
         win = self.qtile.windows_map.get(view.wid)
