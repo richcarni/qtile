@@ -496,7 +496,7 @@ class Qtile(CommandObject):
                 scr.group = grp
 
             # Ensure group's screen reference is to this screen
-            scr.group.screen = scr
+            # scr.group.screen = scr
 
             scr._configure(
                 self,
