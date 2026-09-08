@@ -582,7 +582,7 @@ class Screen(CommandObject):
         if new_group is None:
             return
 
-        if new_group.screen == self:
+        if new_group.screen is self:
             return
 
         if save_prev and new_group is not self.group:

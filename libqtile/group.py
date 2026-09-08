@@ -145,7 +145,7 @@ class _Group(CommandObject):
 
     def set_screen(self, screen, warp=True):
         """Set this group's screen to screen"""
-        if screen == self.screen:
+        if screen is self.screen:
             return
         self.screen = screen
         if self.screen:
