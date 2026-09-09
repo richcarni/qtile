@@ -173,6 +173,13 @@ class Registry:
                 elif asyncio.iscoroutine(i):
                     _fire_async_event(i, unsubscribe_func(event, i))
                 else:
+                    if event == "focus_change":
+                        import traceback
+                        logger.warning(
+                            "focus_change fired, handler=%s\n%s",
+                            i,
+                            "".join(traceback.format_stack()),
+                        )
                     result = i(*args, **kwargs)
                     if result is True:
                         to_unsubscribe.append(unsubscribe_func(event, i))
