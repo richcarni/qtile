@@ -585,6 +585,10 @@ class Screen(CommandObject):
         if new_group.screen is self:
             return
 
+        if new_group.screen == self:
+            new_group.screen = self
+            return
+
         if save_prev and new_group is not self.group:
             # new_group can be self.group only if the screen is getting configured for
             # the first time
