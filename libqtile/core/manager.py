@@ -518,10 +518,10 @@ class Qtile(CommandObject):
 
         # With dynamically generated screens we need to update current_screen
         # to a matching new Screen, or set a sensible default
-        if self.current_screen in new_screens:
-            self.current_screen = new_screens[new_screens.index(self.current_screen)]
-        else:
-            self.current_screen = new_screens[0]
+        # if self.current_screen in new_screens:
+        #     self.current_screen = new_screens[new_screens.index(self.current_screen)]
+        # else:
+        #     self.current_screen = new_screens[0]
 
         self.screens = new_screens
 
