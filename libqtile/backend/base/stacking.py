@@ -52,9 +52,9 @@ class TreeNode:
         self.layer_group = layer_group
         self.depth = 0
 
-        # Transient relationships
-        self.transient_parent = None
-        self.transient_children = []
+        # # Transient relationships
+        # self.transient_parent = None
+        # self.transient_children = []
 
     def __repr__(self):
         if self.parent is None and self.layer_group is None:
@@ -474,6 +474,7 @@ class _StackingManager(metaclass=ABCMeta):
         """Complete check of all window stacking, repositioning as needed."""
 
     def restack(self):
+        logger.warning(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         self.repair_transients()
         self.stack_all()
 

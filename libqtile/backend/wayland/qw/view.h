@@ -144,6 +144,7 @@ void qw_view_move_up(struct qw_view *view);
 void qw_view_move_down(struct qw_view *view);
 void qw_view_raise_to_top(struct qw_view *view);
 void qw_view_lower_to_bottom(struct qw_view *view);
+void qw_view_move_above(struct qw_view *view, struct qw_view *view2);
 
 bool qw_view_is_visible(struct qw_view *view);
 

@@ -173,6 +173,21 @@ void qw_view_move_down(struct qw_view *view) {
     }
 }
 
+void qw_view_move_above(struct qw_view *view, struct qw_view *view2) {
+    if (view == NULL || view2 == NULL || view == view2) {
+        return;
+    }
+
+    struct wlr_scene_node *node = &view->content_tree->node;
+    struct wlr_scene_node *target = &view2->content_tree->node;
+
+    if (node->parent != target->parent) {
+        return;
+    }
+
+    wlr_scene_node_place_above(node, target);
+}
+
 bool qw_view_is_visible(struct qw_view *view) { return view->content_tree->node.enabled; }
 
 // Creates and paints multiple border layers around the view content.

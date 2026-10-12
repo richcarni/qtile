@@ -290,6 +290,8 @@ class Core(base.Core, WaylandStackingManager):
         self.idle_inhibitor_manager = IdleInhibitorManager(self)
         self.idle_notifier = IdleNotifier(self)
 
+        # self.init_stacking()
+
     def update_backend_log_level(self) -> None:
         """Update the wlr log level based on Qtile's log level."""
         lib.qw_log_init(get_wlr_log_level(), lib.log_cb)
@@ -483,6 +485,7 @@ class Core(base.Core, WaylandStackingManager):
         win._float_width = win.width  # todo: should we be using getter/setter for _float_width
         win._float_height = win.height
 
+        self.add_window(win)
         self.qtile.manage(win)
         if win.group and win.group.screen:
             self.check_screen_fullscreen_background(win.group.screen)

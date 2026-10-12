@@ -32,6 +32,10 @@ class _Window(CommandObject, metaclass=ABCMeta):
         self.base_width: int | None = None
         self.base_height: int | None = None
 
+        # Transient relationships
+        self.transient_parent = None
+        self.transient_children = []
+
     @property
     @abstractmethod
     def wid(self) -> int:

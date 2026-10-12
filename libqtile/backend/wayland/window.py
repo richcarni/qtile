@@ -26,6 +26,20 @@ if typing.TYPE_CHECKING:
     from libqtile.backend.wayland.core import Core
 
 
+def restack_window(window):
+    """Creates a function to restack a window when focus changes."""
+
+    def _window_focus_check(new_focus):
+        if new_focus is not window:
+            # Restack our window
+            window.change_layer()
+            # Make sure new window is on top
+            new_focus.move_to_top()
+            return True
+
+    return _window_focus_check
+
+
 class Base(base._Window):
     def __init__(self, qtile: Qtile, ptr: ffi.CData, wid: int):
         base._Window.__init__(self)
@@ -58,6 +72,14 @@ class Base(base._Window):
         if self.layer() == layer:
             return
         lib.qw_view_reparent(self._ptr, layer)
+
+    def change_layer(self, layer=None, bottom=False):
+        self.reparent(layer or self.get_layering_information())
+        if bottom:
+            self.move_to_bottom()
+
+    def restack_on_focus_change(self):
+        hook.subscribe.client_focus(restack_window(self))
 
     @property
     def opacity(self) -> float:
@@ -102,6 +124,7 @@ class Base(base._Window):
     @expose_command()
     def move_to_top(self) -> None:
         lib.qw_view_raise_to_top(self._ptr)
+        self.qtile.core.repair_transients()
 
     @expose_command()
     def move_up(self, force: bool = False) -> None:
@@ -119,6 +142,11 @@ class Base(base._Window):
     def bring_to_front(self) -> None:
         self.reparent(lib.LAYER_BRINGTOFRONT)
         lib.qw_view_raise_to_top(self._ptr)
+        logger.warning("111111111111111111111")
+        self.restack_on_focus_change()
+
+    def move_above(self, window: WindowType):
+        lib.qw_view_move_above(self._ptr, window._ptr)
 
     @property
     def wid(self) -> int:
